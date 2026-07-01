@@ -10,8 +10,8 @@ spring:
   # 数据源配置（达梦 DM8 - 国产化要求）
   datasource:
     url: jdbc:dm://${DB_HOST:localhost}:${DB_PORT:5236}/${DB_NAME:INTEGRATION_CONTROL}?compatibleMode=mysql
-    username: ${DB_USERNAME:SYSDBA}
-    password: ${DB_PASSWORD:SYSDBA}
+    username: ${DB_USERNAME:?must be set}
+    password: ${DB_PASSWORD:?must be set}
     driver-class-name: dm.jdbc.driver.DmDriver
     hikari:
       minimum-idle: 5
