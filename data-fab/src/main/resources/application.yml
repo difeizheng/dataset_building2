@@ -9,8 +9,8 @@ spring:
   datasource:
     driver-class-name: dm.jdbc.driver.DmDriver
     url: jdbc:dm://localhost:5236/DATA_FAB
-    username: ${DB_USERNAME:SYSDBA}
-    password: ${DB_PASSWORD:SYSDBA}
+    username: ${DB_USERNAME:?must be set}
+    password: ${DB_PASSWORD:?must be set}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
