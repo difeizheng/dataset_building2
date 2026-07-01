@@ -1,0 +1,9 @@
+package com.ctg.dataFab.label.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.ctg.dataFab.label.entity.LabelTask;
+import org.apache.ibatis.annotations.Mapper;
+
+@Mapper
+public interface LabelTaskMapper extends BaseMapper<LabelTask> {
+}
