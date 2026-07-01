@@ -1,0 +1,30 @@
+package com.ctg.aiFab.gateway.common.exception;
+
+import lombok.Getter;
+
+/**
+ * 基础异常类
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+@Getter
+public class BaseException extends RuntimeException {
+
+    private final Integer code;
+
+    public BaseException(String message) {
+        super(message);
+        this.code = 500;
+    }
+
+    public BaseException(Integer code, String message) {
+        super(message);
+        this.code = code;
+    }
+
+    public BaseException(Integer code, String message, Throwable cause) {
+        super(message, cause);
+        this.code = code;
+    }
+}
