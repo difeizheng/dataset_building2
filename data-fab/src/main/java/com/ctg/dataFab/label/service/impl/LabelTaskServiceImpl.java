@@ -172,31 +172,57 @@ public class LabelTaskServiceImpl implements LabelTaskService {
 
     /**
      * 检查并处理IAA
+     * H3修复: 等全部标注员提交后再算; 多人场景接入Fleiss Kappa; 加并发保护
      */
     private void checkAndProcessIaa(LabelTask task, Long sampleId) {
         // 获取该样本的所有标注记录
         LambdaQueryWrapper<LabelRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(LabelRecord::getTaskId, task.getId())
                .eq(LabelRecord::getSampleId, sampleId)
-               .eq(LabelRecord::getStatus, 1);
+               .eq(LabelRecord::getStatus, 1); // 已标注
         List<LabelRecord> records = labelRecordMapper.selectList(wrapper);
 
-        if (records.size() < 2) {
-            return; // 还未完成双盲标注
+        // H3修复: 必须等全部标注员都提交后才计算IAA
+        int expectedAnnotators = task.getAnnotatorCount() != null ? task.getAnnotatorCount() : 2;
+        if (records.size() < expectedAnnotators) {
+            log.debug("等待更多标注员提交: 样本ID={}, 已提交={}/{}", sampleId, records.size(), expectedAnnotators);
+            return; // 还未完成全部标注
         }
 
-        // 计算Kappa
-        String[] labels1 = parseAnnotations(records.get(0).getAnnotations());
-        String[] labels2 = parseAnnotations(records.get(1).getAnnotations());
+        if (records.size() < 2) {
+            return; // 至少需要2名标注员
+        }
 
-        if (labels1.length == 0 || labels2.length == 0) {
+        // H3修复: 并发保护 - 检查是否已经处理过该样本的IAA
+        LambdaQueryWrapper<LabelArbitration> arbWrapper = new LambdaQueryWrapper<>();
+        arbWrapper.eq(LabelArbitration::getTaskId, task.getId())
+                  .eq(LabelArbitration::getSampleId, sampleId);
+        Long existingArbCount = labelArbitrationMapper.selectCount(arbWrapper);
+        if (existingArbCount > 0) {
+            log.debug("该样本已处理过IAA, 跳过: 样本ID={}", sampleId);
             return;
         }
 
-        double kappa = IaaEngine.calculateCohenKappa(labels1, labels2);
+        // H3修复: 根据标注员数量选择Cohen's Kappa或Fleiss' Kappa
+        double kappa;
+        if (records.size() == 2) {
+            // 2名标注员: 使用Cohen's Kappa
+            String[] labels1 = parseAnnotations(records.get(0).getAnnotations());
+            String[] labels2 = parseAnnotations(records.get(1).getAnnotations());
+
+            if (labels1.length == 0 || labels2.length == 0) {
+                return;
+            }
+
+            kappa = IaaEngine.calculateCohenKappa(labels1, labels2);
+        } else {
+            // 3名及以上标注员: 使用Fleiss' Kappa
+            kappa = calculateFleissKappaForSample(records);
+        }
+
         IaaEngine.IaaDecision decision = IaaEngine.decide(kappa);
 
-        log.info("IAA计算结果: 样本ID={}, Kappa={}, 决策={}", sampleId, kappa, decision);
+        log.info("IAA计算结果: 样本ID={}, 标注员数={}, Kappa={}, 决策={}", sampleId, records.size(), kappa, decision);
 
         switch (decision) {
             case ACCEPT:
@@ -230,6 +256,60 @@ public class LabelTaskServiceImpl implements LabelTaskService {
                 triggerRelabelForSample(task, sampleId);
                 break;
         }
+    }
+
+    /**
+     * H3修复: 计算单个样本的Fleiss' Kappa (多名标注员)
+     */
+    private double calculateFleissKappaForSample(List<LabelRecord> records) {
+        if (records.size() < 2) {
+            return 0.0;
+        }
+
+        // 解析所有标注员的标签
+        List<String[]> allLabels = records.stream()
+                .map(r -> parseAnnotations(r.getAnnotations()))
+                .filter(labels -> labels.length > 0)
+                .collect(Collectors.toList());
+
+        if (allLabels.size() < 2) {
+            return 0.0;
+        }
+
+        // 找出最大标签数量 (所有标注员应该标注相同数量的项目)
+        int maxLabels = allLabels.stream().mapToInt(arr -> arr.length).max().orElse(0);
+        if (maxLabels == 0) {
+            return 0.0;
+        }
+
+        // 收集所有唯一的类别
+        Set<String> allCategories = new HashSet<>();
+        for (String[] labels : allLabels) {
+            for (String label : labels) {
+                allCategories.add(label);
+            }
+        }
+
+        int categories = allCategories.size();
+        if (categories == 0) {
+            return 0.0;
+        }
+
+        // 构建Fleiss' Kappa矩阵: [样本数][类别数]
+        // 这里每个"样本"实际上是一个标注位置 (如图像中的第i个对象)
+        int[][] annotations = new int[maxLabels][categories];
+        List<String> categoryList = new ArrayList<>(allCategories);
+
+        for (String[] labels : allLabels) {
+            for (int j = 0; j < labels.length; j++) {
+                int categoryIndex = categoryList.indexOf(labels[j]);
+                if (categoryIndex >= 0) {
+                    annotations[j][categoryIndex]++;
+                }
+            }
+        }
+
+        return IaaEngine.calculateFleissKappa(annotations, categories);
     }
 
     /**
@@ -301,17 +381,31 @@ public class LabelTaskServiceImpl implements LabelTaskService {
         Map<Long, List<LabelRecord>> bySample = allRecords.stream()
                 .collect(Collectors.groupingBy(LabelRecord::getSampleId));
 
-        // 计算平均Kappa
+        // H3修复: 根据标注员数量选择Cohen's Kappa或Fleiss' Kappa
+        int annotatorCount = task.getAnnotatorCount() != null ? task.getAnnotatorCount() : 2;
         double totalKappa = 0.0;
         int count = 0;
+
         for (List<LabelRecord> records : bySample.values()) {
-            if (records.size() >= 2) {
+            if (records.size() < 2) {
+                continue;
+            }
+
+            double kappa;
+            if (annotatorCount <= 2) {
+                // 2名标注员: 使用Cohen's Kappa
                 String[] labels1 = parseAnnotations(records.get(0).getAnnotations());
                 String[] labels2 = parseAnnotations(records.get(1).getAnnotations());
                 if (labels1.length > 0 && labels2.length > 0) {
-                    totalKappa += IaaEngine.calculateCohenKappa(labels1, labels2);
+                    kappa = IaaEngine.calculateCohenKappa(labels1, labels2);
+                    totalKappa += kappa;
                     count++;
                 }
+            } else {
+                // 3名及以上标注员: 使用Fleiss' Kappa
+                kappa = calculateFleissKappaForSample(records);
+                totalKappa += kappa;
+                count++;
             }
         }
 

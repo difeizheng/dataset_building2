@@ -119,7 +119,7 @@ class DataSampleServiceImplTest {
     @DisplayName("分页查询数据样本")
     void testListDataSamples() {
         Page<DataSample> page = new Page<>(1, 20);
-        page.add(dataSample);
+        page.setRecords(java.util.Collections.singletonList(dataSample));
 
         when(dataSampleMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
                 .thenReturn(page);

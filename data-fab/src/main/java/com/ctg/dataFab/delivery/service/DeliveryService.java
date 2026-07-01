@@ -32,7 +32,7 @@ public interface DeliveryService {
     /**
      * 生成下载令牌
      */
-    String generateDownloadToken(Long recordId, String approvalId);
+    String generateDownloadToken(Long recordId, Long userId, String approvalId);
 
     /**
      * 下架数据集

@@ -74,12 +74,8 @@ public class QaServiceImpl implements QaService {
         task.setStatus(result.isPassed() ? 2 : 3); // 通过/未通过
         qaTaskMapper.updateById(task);
 
-        // 如果通过，更新数据集状态
-        if (result.isPassed()) {
-            Dataset dataset = datasetService.getDatasetById(request.getDatasetId());
-            dataset.setStatus(DataStatus.QA_PASS.getCode());
-            datasetMapper.updateById(dataset);
-        }
+        // H1修复: evaluate只落自动结果 + reviewStage=0，不直接改数据集状态
+        // 数据集置QA_PASS只能在expertReview(stage=2)通过后
 
         // 构建响应
         EvaluateResponse response = new EvaluateResponse();
@@ -93,10 +89,11 @@ public class QaServiceImpl implements QaService {
             info.setActual(gate.getActual());
             info.setPassed(gate.isPassed());
             info.setOperator(gate.getOperator());
+            info.setMissing(gate.isMissing());
             return info;
         }).collect(Collectors.toList()));
 
-        log.info("质量评估完成: 任务ID={}, 通过={}", task.getId(), result.isPassed());
+        log.info("质量评估完成: 任务ID={}, 通过={}, 等待人工复审", task.getId(), result.isPassed());
         return response;
     }
 

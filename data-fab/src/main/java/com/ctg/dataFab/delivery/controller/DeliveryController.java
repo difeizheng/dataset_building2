@@ -71,8 +71,9 @@ public class DeliveryController {
     @Operation(summary = "生成下载令牌")
     public ApiResponse<String> generateDownloadToken(
             @PathVariable Long id,
-            @RequestParam String approvalId) {
-        String token = deliveryService.generateDownloadToken(id, approvalId);
+            @RequestParam Long userId,
+            @RequestParam(required = false) String approvalId) {
+        String token = deliveryService.generateDownloadToken(id, userId, approvalId);
         return ApiResponse.success(token);
     }
 

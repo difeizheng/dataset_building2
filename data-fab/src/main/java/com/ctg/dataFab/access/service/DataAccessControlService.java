@@ -1,5 +1,10 @@
 package com.ctg.dataFab.access.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ctg.dataFab.access.entity.AuditLog;
+import com.ctg.dataFab.access.entity.DataApproval;
+import com.ctg.dataFab.access.mapper.AuditLogMapper;
+import com.ctg.dataFab.access.mapper.DataApprovalMapper;
 import com.ctg.dataFab.classification.engine.DataClassificationEngine;
 import com.ctg.dataFab.classification.engine.DataClassificationEngine.ClassificationResult;
 import com.ctg.dataFab.common.enums.DataLevel;
@@ -9,6 +14,8 @@ import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 /**
  * 数据访问控制服务
@@ -23,6 +30,8 @@ import org.springframework.stereotype.Service;
 public class DataAccessControlService {
 
     private final DataSampleMapper dataSampleMapper;
+    private final AuditLogMapper auditLogMapper;
+    private final DataApprovalMapper dataApprovalMapper;
 
     /**
      * 检查是否允许下载
@@ -42,7 +51,7 @@ public class DataAccessControlService {
         // L4 核心数据禁止下载
         if (level == DataLevel.L4_CORE) {
             log.warn("L4核心数据禁止下载: sampleId={}, userId={}", sampleId, userId);
-            auditAccess(sampleId, userId, "DOWNLOAD_BLOCKED", "L4核心数据禁止下载");
+            auditAccess(sampleId, "SAMPLE", userId, "DOWNLOAD", "BLOCKED", "L4核心数据禁止下载");
             return false;
         }
 
@@ -51,12 +60,12 @@ public class DataAccessControlService {
             boolean approved = checkApproval(sampleId, userId, "DOWNLOAD");
             if (!approved) {
                 log.warn("L3敏感数据下载需要审批: sampleId={}, userId={}", sampleId, userId);
-                auditAccess(sampleId, userId, "DOWNLOAD_PENDING_APPROVAL", "L3敏感数据下载待审批");
+                auditAccess(sampleId, "SAMPLE", userId, "DOWNLOAD", "PENDING_APPROVAL", "L3敏感数据下载待审批");
                 return false;
             }
         }
 
-        auditAccess(sampleId, userId, "DOWNLOAD_ALLOWED", "允许下载");
+        auditAccess(sampleId, "SAMPLE", userId, "DOWNLOAD", "ALLOWED", "允许下载");
         return true;
     }
 
@@ -78,11 +87,11 @@ public class DataAccessControlService {
         // L4 核心数据禁止打印
         if (level == DataLevel.L4_CORE) {
             log.warn("L4核心数据禁止打印: sampleId={}, userId={}", sampleId, userId);
-            auditAccess(sampleId, userId, "PRINT_BLOCKED", "L4核心数据禁止打印");
+            auditAccess(sampleId, "SAMPLE", userId, "PRINT", "BLOCKED", "L4核心数据禁止打印");
             return false;
         }
 
-        auditAccess(sampleId, userId, "PRINT_ALLOWED", "允许打印");
+        auditAccess(sampleId, "SAMPLE", userId, "PRINT", "ALLOWED", "允许打印");
         return true;
     }
 
@@ -104,7 +113,7 @@ public class DataAccessControlService {
         // L4 核心数据禁止外发
         if (level == DataLevel.L4_CORE) {
             log.warn("L4核心数据禁止外发: sampleId={}, userId={}", sampleId, userId);
-            auditAccess(sampleId, userId, "EXPORT_BLOCKED", "L4核心数据禁止外发");
+            auditAccess(sampleId, "SAMPLE", userId, "EXPORT", "BLOCKED", "L4核心数据禁止外发");
             return false;
         }
 
@@ -113,12 +122,12 @@ public class DataAccessControlService {
             boolean approved = checkApproval(sampleId, userId, "EXPORT");
             if (!approved) {
                 log.warn("L3敏感数据外发需要审批: sampleId={}, userId={}", sampleId, userId);
-                auditAccess(sampleId, userId, "EXPORT_PENDING_APPROVAL", "L3敏感数据外发待审批");
+                auditAccess(sampleId, "SAMPLE", userId, "EXPORT", "PENDING_APPROVAL", "L3敏感数据外发待审批");
                 return false;
             }
         }
 
-        auditAccess(sampleId, userId, "EXPORT_ALLOWED", "允许外发");
+        auditAccess(sampleId, "SAMPLE", userId, "EXPORT", "ALLOWED", "允许外发");
         return true;
     }
 
@@ -140,11 +149,11 @@ public class DataAccessControlService {
         // L4 核心数据仅允许在线查看（带水印）
         if (level == DataLevel.L4_CORE) {
             log.info("L4核心数据允许在线查看（带水印）: sampleId={}, userId={}", sampleId, userId);
-            auditAccess(sampleId, userId, "VIEW_ALLOWED_WITH_WATERMARK", "L4核心数据允许在线查看（带水印）");
+            auditAccess(sampleId, "SAMPLE", userId, "VIEW", "ALLOWED", "L4核心数据允许在线查看（带水印）");
             return true;
         }
 
-        auditAccess(sampleId, userId, "VIEW_ALLOWED", "允许查看");
+        auditAccess(sampleId, "SAMPLE", userId, "VIEW", "ALLOWED", "允许查看");
         return true;
     }
 
@@ -168,18 +177,34 @@ public class DataAccessControlService {
      * 检查审批状态
      */
     private boolean checkApproval(Long sampleId, Long userId, String action) {
-        // TODO: 实现审批流程检查
-        // 这里应该查询审批表，检查是否有有效的审批记录
-        log.info("检查审批状态: sampleId={}, userId={}, action={}", sampleId, userId, action);
-        return false; // 默认需要审批
+        // 查询有效的审批记录
+        LambdaQueryWrapper<DataApproval> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(DataApproval::getResourceId, sampleId)
+               .eq(DataApproval::getResourceType, "SAMPLE")
+               .eq(DataApproval::getAction, action)
+               .eq(DataApproval::getApplicantId, userId)
+               .eq(DataApproval::getStatus, 1) // 已通过
+               .and(w -> w.isNull(DataApproval::getExpireTime)
+                         .or()
+                         .gt(DataApproval::getExpireTime, LocalDateTime.now()));
+
+        Long count = dataApprovalMapper.selectCount(wrapper);
+        return count > 0;
     }
 
     /**
-     * 审计访问记录
+     * 审计访问记录 (WORM - Write Once Read Many)
      */
-    private void auditAccess(Long sampleId, Long userId, String action, String description) {
-        // TODO: 实现审计日志记录
-        log.info("审计访问记录: sampleId={}, userId={}, action={}, description={}",
-                sampleId, userId, action, description);
+    public void auditAccess(Long resourceId, String resourceType, Long userId, String action, String result, String description) {
+        AuditLog auditLog = new AuditLog();
+        auditLog.setResourceId(resourceId);
+        auditLog.setResourceType(resourceType);
+        auditLog.setUserId(userId);
+        auditLog.setAction(action);
+        auditLog.setResult(result);
+        auditLog.setDescription(description);
+
+        auditLogMapper.insert(auditLog);
+        log.info("审计日志: resourceId={}, action={}, result={}", resourceId, action, result);
     }
 }

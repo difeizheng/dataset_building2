@@ -80,22 +80,23 @@ class QaServiceImplTest {
     }
 
     @Test
-    @DisplayName("执行质量评估 - 通过")
-    void testEvaluate_Pass() {
+    @DisplayName("H1: 执行质量评估 - 通过后不直接改数据集状态")
+    void testEvaluate_Pass_DoesNotChangeDatasetStatus() {
         when(qaTaskMapper.insert(any(QaTask.class))).thenAnswer(invocation -> {
             QaTask task = invocation.getArgument(0);
             task.setId(1L);
             return 1;
         });
         when(qaTaskMapper.updateById(any(QaTask.class))).thenReturn(1);
-        when(datasetService.getDatasetById(1L)).thenReturn(new Dataset());
-        when(datasetMapper.updateById(any(Dataset.class))).thenReturn(1);
 
         EvaluateResponse response = qaService.evaluate(evaluateRequest);
 
         assertNotNull(response);
-        assertTrue(response.getPassed());
+        assertTrue(response.isPassed());
         verify(qaTaskMapper).insert(any(QaTask.class));
+        // H1修复: evaluate不应直接修改数据集状态
+        verify(datasetService, never()).getDatasetById(anyLong());
+        verify(datasetMapper, never()).updateById(any(Dataset.class));
     }
 
     @Test
@@ -115,7 +116,7 @@ class QaServiceImplTest {
         EvaluateResponse response = qaService.evaluate(evaluateRequest);
 
         assertNotNull(response);
-        assertFalse(response.getPassed());
+        assertFalse(response.isPassed());
     }
 
     @Test
@@ -143,7 +144,7 @@ class QaServiceImplTest {
     @DisplayName("分页查询评估任务")
     void testListTasks() {
         Page<QaTask> page = new Page<>(1, 20);
-        page.add(qaTask);
+        page.setRecords(java.util.Collections.singletonList(qaTask));
 
         when(qaTaskMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
                 .thenReturn(page);

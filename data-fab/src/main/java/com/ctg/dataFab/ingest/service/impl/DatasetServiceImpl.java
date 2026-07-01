@@ -93,18 +93,16 @@ public class DatasetServiceImpl implements DatasetService {
     public void updateDatasetStats(Long datasetId) {
         Dataset dataset = getDatasetById(datasetId);
 
-        // 统计样本数量和总大小
+        // 统计样本数量
         LambdaQueryWrapper<DataSample> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(DataSample::getDatasetId, datasetId);
         Long count = dataSampleMapper.selectCount(wrapper);
 
-        // 计算总大小
-        Long totalSize = dataSampleMapper.selectList(wrapper).stream()
-                .mapToLong(s -> s.getFileSize() != null ? s.getFileSize() : 0L)
-                .sum();
+        // M-5: 使用SQL SUM()聚合计算总大小，避免全量加载
+        Long totalSize = dataSampleMapper.sumFileSizeByDatasetId(datasetId);
 
         dataset.setSampleCount(count.intValue());
-        dataset.setTotalSize(totalSize);
+        dataset.setTotalSize(totalSize != null ? totalSize : 0L);
         datasetMapper.updateById(dataset);
 
         log.info("数据集统计信息更新成功, ID: {}, 样本数: {}, 总大小: {}", datasetId, count, totalSize);

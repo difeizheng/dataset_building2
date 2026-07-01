@@ -44,15 +44,23 @@ public class QualityThresholdEngine {
     public static class GateCheck {
         private String name;
         private double threshold;
-        private double actual;
+        private Double actual; // null表示缺失
         private boolean passed;
         private String operator; // >, <, >=, <=
+        private boolean missing; // 指标是否缺失
 
-        public GateCheck(String name, double threshold, double actual, String operator) {
+        public GateCheck(String name, double threshold, Double actual, String operator) {
             this.name = name;
             this.threshold = threshold;
             this.actual = actual;
             this.operator = operator;
+            this.missing = (actual == null);
+
+            // H2修复: 缺失指标判定为FAIL
+            if (actual == null) {
+                this.passed = false;
+                return;
+            }
 
             switch (operator) {
                 case ">":
@@ -120,23 +128,23 @@ public class QualityThresholdEngine {
 
         // 完整率 > 99.5%
         gates.add(new GateCheck("完整率", 99.5,
-                getDouble(metrics, "completeness_rate"), ">"));
+                getDoubleOrNull(metrics, "completeness_rate"), ">"));
 
         // 语法正确率 > 98%
         gates.add(new GateCheck("语法正确率", 98.0,
-                getDouble(metrics, "grammar_accuracy"), ">"));
+                getDoubleOrNull(metrics, "grammar_accuracy"), ">"));
 
         // 重复率 < 1%
         gates.add(new GateCheck("重复率", 1.0,
-                getDouble(metrics, "duplicate_rate"), "<"));
+                getDoubleOrNull(metrics, "duplicate_rate"), "<"));
 
         // 毒性 < 0.1%
         gates.add(new GateCheck("毒性", 0.1,
-                getDouble(metrics, "toxicity_rate"), "<"));
+                getDoubleOrNull(metrics, "toxicity_rate"), "<"));
 
         // 领域CV < 0.3
         gates.add(new GateCheck("领域CV", 0.3,
-                getDouble(metrics, "domain_cv"), "<"));
+                getDoubleOrNull(metrics, "domain_cv"), "<"));
 
         return gates;
     }
@@ -149,23 +157,23 @@ public class QualityThresholdEngine {
 
         // IoU > 0.85
         gates.add(new GateCheck("IoU", 0.85,
-                getDouble(metrics, "iou"), ">"));
+                getDoubleOrNull(metrics, "iou"), ">"));
 
         // 分类准确率 > 95%
         gates.add(new GateCheck("分类准确率", 95.0,
-                getDouble(metrics, "classification_accuracy"), ">"));
+                getDoubleOrNull(metrics, "classification_accuracy"), ">"));
 
         // pHash重复 < 2%
         gates.add(new GateCheck("pHash重复", 2.0,
-                getDouble(metrics, "phash_duplicate"), "<"));
+                getDoubleOrNull(metrics, "phash_duplicate"), "<"));
 
         // 违规 < 0.05%
         gates.add(new GateCheck("违规", 0.05,
-                getDouble(metrics, "violation_rate"), "<"));
+                getDoubleOrNull(metrics, "violation_rate"), "<"));
 
         // 最短边 > 512px
         gates.add(new GateCheck("最短边", 512.0,
-                getDouble(metrics, "min_edge_length"), ">"));
+                getDoubleOrNull(metrics, "min_edge_length"), ">"));
 
         return gates;
     }
@@ -178,23 +186,23 @@ public class QualityThresholdEngine {
 
         // CER < 3%
         gates.add(new GateCheck("CER", 3.0,
-                getDouble(metrics, "cer"), "<"));
+                getDoubleOrNull(metrics, "cer"), "<"));
 
         // SNR > 20dB
         gates.add(new GateCheck("SNR", 20.0,
-                getDouble(metrics, "snr"), ">"));
+                getDoubleOrNull(metrics, "snr"), ">"));
 
         // 总时长 > 1000h
         gates.add(new GateCheck("总时长", 1000.0,
-                getDouble(metrics, "total_hours"), ">"));
+                getDoubleOrNull(metrics, "total_hours"), ">"));
 
         // 说话人均衡度 > 80%
         gates.add(new GateCheck("说话人均衡度", 80.0,
-                getDouble(metrics, "speaker_balance"), ">"));
+                getDoubleOrNull(metrics, "speaker_balance"), ">"));
 
         // 涉密识别 = 0
         gates.add(new GateCheck("涉密识别", 0.0,
-                getDouble(metrics, "secret_leak"), "<="));
+                getDoubleOrNull(metrics, "secret_leak"), "<="));
 
         return gates;
     }
@@ -207,34 +215,34 @@ public class QualityThresholdEngine {
 
         // 分辨率 > 720p (高度)
         gates.add(new GateCheck("分辨率", 720.0,
-                getDouble(metrics, "resolution_height"), ">"));
+                getDoubleOrNull(metrics, "resolution_height"), ">"));
 
         // 帧率 > 24fps
         gates.add(new GateCheck("帧率", 24.0,
-                getDouble(metrics, "frame_rate"), ">"));
+                getDoubleOrNull(metrics, "frame_rate"), ">"));
 
         // 时间偏差 < 0.5s
         gates.add(new GateCheck("时间偏差", 0.5,
-                getDouble(metrics, "time_deviation"), "<"));
+                getDoubleOrNull(metrics, "time_deviation"), "<"));
 
         // 类别数 > 100
         gates.add(new GateCheck("类别数", 100.0,
-                getDouble(metrics, "category_count"), ">"));
+                getDoubleOrNull(metrics, "category_count"), ">"));
 
         // 涉黄/政 = 0
         gates.add(new GateCheck("涉黄/政", 0.0,
-                getDouble(metrics, "inappropriate_content"), "<="));
+                getDoubleOrNull(metrics, "inappropriate_content"), "<="));
 
         return gates;
     }
 
     /**
-     * 从Map中安全获取double值
+     * 从Map中安全获取double值，缺失返回null
      */
-    private static double getDouble(Map<String, Object> map, String key) {
+    private static Double getDoubleOrNull(Map<String, Object> map, String key) {
         Object value = map.get(key);
         if (value == null) {
-            return 0.0;
+            return null;
         }
         if (value instanceof Number) {
             return ((Number) value).doubleValue();
@@ -242,7 +250,7 @@ public class QualityThresholdEngine {
         try {
             return Double.parseDouble(value.toString());
         } catch (NumberFormatException e) {
-            return 0.0;
+            return null;
         }
     }
 }

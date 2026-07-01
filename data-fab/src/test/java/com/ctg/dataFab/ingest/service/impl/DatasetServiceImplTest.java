@@ -104,7 +104,7 @@ class DatasetServiceImplTest {
     @DisplayName("分页查询数据集")
     void testListDatasets() {
         Page<Dataset> page = new Page<>(1, 20);
-        page.add(dataset);
+        page.setRecords(java.util.Collections.singletonList(dataset));
 
         when(datasetMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
                 .thenReturn(page);
@@ -144,20 +144,12 @@ class DatasetServiceImplTest {
     @DisplayName("更新数据集统计信息")
     void testUpdateDatasetStats() {
         when(datasetMapper.selectById(1L)).thenReturn(dataset);
-        when(dataSampleMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(10L);
-        when(dataSampleMapper.selectList(any(LambdaQueryWrapper.class)))
-                .thenReturn(Arrays.asList(createSample(1024L), createSample(2048L)));
+        when(dataSampleMapper.selectCount(any())).thenReturn(10L);
+        when(dataSampleMapper.sumFileSizeByDatasetId(1L)).thenReturn(3072L);
         when(datasetMapper.updateById(any(Dataset.class))).thenReturn(1);
 
         datasetService.updateDatasetStats(1L);
 
         verify(datasetMapper).updateById(any(Dataset.class));
-    }
-
-    private DataSample createSample(Long fileSize) {
-        DataSample sample = new DataSample();
-        sample.setDatasetId(1L);
-        sample.setFileSize(fileSize);
-        return sample;
     }
 }

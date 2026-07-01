@@ -22,8 +22,9 @@ public class EvaluateResponse {
     public static class GateInfo {
         private String name;
         private double threshold;
-        private double actual;
+        private Double actual;
         private boolean passed;
         private String operator;
+        private boolean missing;
     }
 }
