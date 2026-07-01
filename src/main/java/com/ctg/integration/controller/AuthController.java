@@ -1,0 +1,97 @@
+package com.ctg.integration.controller;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
+import com.ctg.integration.dto.auth.*;
+import com.ctg.integration.security.JwtTokenProvider;
+import com.ctg.integration.service.AuthenticationService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * 认证控制器
+ * 提供登录、登出、令牌刷新等接口
+ *
+ * @author CTG
+ * @since 2026-07-01
+ */
+@Slf4j
+@RestController
+@RequestMapping("/auth")
+@RequiredArgsConstructor
+@Tag(name = "认证管理", description = "用户登录、登出、令牌管理")
+public class AuthController {
+
+    private final AuthenticationService authenticationService;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @PostMapping("/login")
+    @Operation(summary = "用户登录", description = "使用用户名密码登录系统，返回JWT令牌")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        log.info("收到登录请求: {}", request.getUsername());
+        LoginResponse response = authenticationService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "刷新令牌", description = "使用刷新令牌获取新的访问令牌")
+    public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        log.debug("收到刷新令牌请求");
+        LoginResponse response = authenticationService.refreshToken(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "用户登出", description = "使当前令牌失效")
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authorization) {
+        log.debug("收到登出请求");
+        String token = authorization.substring(7); // Remove "Bearer "
+        authenticationService.logout(token);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/mfa/verify")
+    @Operation(summary = "MFA验证", description = "验证双因子认证码")
+    public ResponseEntity<Boolean> verifyMFA(
+            @RequestHeader("Authorization") String authorization,
+            @RequestParam String code) {
+        log.debug("收到MFA验证请求");
+        String token = authorization.substring(7);
+        boolean result = authenticationService.verifyMFA(token, code);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/password/change")
+    @Operation(summary = "修改密码", description = "修改当前用户密码")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        log.debug("收到修改密码请求");
+        authenticationService.changePassword(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/permissions")
+    @Operation(summary = "获取权限", description = "获取当前用户权限列表")
+    public ResponseEntity<List<String>> getPermissions() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        List<String> permissions = authenticationService.getUserPermissions(username);
+        return ResponseEntity.ok(permissions);
+    }
+
+    @GetMapping("/validate")
+    @Operation(summary = "验证令牌", description = "验证JWT令牌是否有效")
+    public ResponseEntity<Boolean> validateToken(@RequestHeader("Authorization") String authorization) {
+        String token = authorization.substring(7);
+        boolean isValid = jwtTokenProvider.validateToken(token);
+        return ResponseEntity.ok(isValid);
+    }
+}

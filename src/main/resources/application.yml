@@ -1,0 +1,137 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: integration-control
+
+  # 数据源配置（达梦 DM8 - 国产化要求）
+  datasource:
+    url: jdbc:dm://${DB_HOST:localhost}:${DB_PORT:5236}/${DB_NAME:INTEGRATION_CONTROL}?compatibleMode=mysql
+    username: ${DB_USERNAME:SYSDBA}
+    password: ${DB_PASSWORD:SYSDBA}
+    driver-class-name: dm.jdbc.driver.DmDriver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+  # JPA配置（达梦 DM8）
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.DmDialect
+        format_sql: true
+    show-sql: false
+    open-in-view: false
+
+  # Redis配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+
+  # 安全配置
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH2_ISSUER:http://localhost:9000}
+
+# 国密算法配置
+crypto:
+  sm2:
+    enabled: true
+    key-size: 256
+  sm3:
+    enabled: true
+  sm4:
+    enabled: true
+    mode: CBC
+    padding: PKCS5Padding
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-for-jwt-signing}
+  expiration: 3600000  # 1小时
+  refresh-expiration: 604800000  # 7天
+
+# 审计日志配置
+audit:
+  enabled: true
+  retention-days: 180
+  async: true
+
+# 数据分级配置
+data-classification:
+  levels:
+    - L1: 公开数据
+    - L2: 内部数据
+    - L3: 敏感数据
+    - L4: 机密数据
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+# OpenAPI配置
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.ctg.integration: DEBUG
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/integration-control.log
+
+# 集成系统配置
+integration:
+  ai-platform:
+    enabled: ${AI_PLATFORM_ENABLED:false}
+    base-url: ${AI_PLATFORM_URL:http://localhost:8081}
+    api-key: ${AI_PLATFORM_KEY:}
+  big-data:
+    enabled: ${BIG_DATA_ENABLED:false}
+    base-url: ${BIG_DATA_URL:http://localhost:8082}
+  xingyun:
+    enabled: ${XINGYUN_ENABLED:false}
+    base-url: ${XINGYUN_URL:http://localhost:8083}
+  wps:
+    enabled: ${WPS_ENABLED:false}
+    base-url: ${WPS_URL:http://localhost:8084}
