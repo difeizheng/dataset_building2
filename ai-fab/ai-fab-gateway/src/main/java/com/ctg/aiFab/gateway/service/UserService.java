@@ -23,11 +23,23 @@ public class UserService {
         return userMapper.findByUsername(username);
     }
 
+    public User findById(Long id) {
+        return userMapper.selectById(id);
+    }
+
     public List<String> getRoleCodes(Long userId) {
         return userMapper.findRoleCodesByUserId(userId);
     }
 
     public List<String> getPermissionCodes(Long userId) {
         return userMapper.findPermissionCodesByUserId(userId);
+    }
+
+    public void updateMfaSecret(Long userId, String secret) {
+        User user = new User();
+        user.setId(userId);
+        user.setMfaSecret(secret);
+        user.setMfaEnabled(true);
+        userMapper.updateById(user);
     }
 }

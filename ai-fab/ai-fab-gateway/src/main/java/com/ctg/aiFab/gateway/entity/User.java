@@ -29,6 +29,10 @@ public class User {
 
     private Integer status; // 0-禁用 1-正常
 
+    private Boolean mfaEnabled; // 是否启用双因子认证
+
+    private String mfaSecret; // TOTP密钥
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

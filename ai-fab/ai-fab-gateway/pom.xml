@@ -93,6 +93,13 @@
             <version>${hutool.version}</version>
         </dependency>
 
+        <!-- TOTP for 2FA -->
+        <dependency>
+            <groupId>dev.samstevens.totp</groupId>
+            <artifactId>totp</artifactId>
+            <version>1.7.1</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

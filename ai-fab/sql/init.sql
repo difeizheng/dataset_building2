@@ -10,6 +10,8 @@ CREATE TABLE sys_user (
     email VARCHAR(100),
     phone VARCHAR(20),
     status INT DEFAULT 1 COMMENT '0-禁用 1-正常',
+    mfa_enabled INT DEFAULT 0 COMMENT '0-未启用 1-已启用双因子认证',
+    mfa_secret VARCHAR(255) COMMENT 'TOTP密钥',
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INT DEFAULT 0
