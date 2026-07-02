@@ -63,3 +63,39 @@ jwt:
 rate-limit:
   default: 100 # 默认每秒100次
   burst: 200 # 突发流量200次
+
+# Spring Cloud Gateway路由配置
+spring:
+  cloud:
+    gateway:
+      routes:
+        # 文档处理服务
+        - id: document-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/document/**
+        # 图像处理服务
+        - id: image-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/image/**
+        # 音视频处理服务
+        - id: media-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/media/**
+        # 故障诊断服务
+        - id: diagnosis-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/diagnosis/**
+        # 决策分析服务
+        - id: decision-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/decision/**
+        # 招投标辅助服务
+        - id: bid-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/bid/**
