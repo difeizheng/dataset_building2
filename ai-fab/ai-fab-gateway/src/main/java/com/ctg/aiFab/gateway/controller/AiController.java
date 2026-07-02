@@ -30,7 +30,7 @@ public class AiController {
         Long userId = (Long) httpRequest.getAttribute("userId");
         String username = (String) httpRequest.getAttribute("username");
 
-        ChatResponse response = aiService.chat(request, userId, username);
+        ChatResponse response = aiService.chat(request, userId, username).join();
         return ApiResponse.success(response);
     }
 }

@@ -64,6 +64,31 @@ rate-limit:
   default: 100 # 默认每秒100次
   burst: 200 # 突发流量200次
 
+# Resilience4j 熔断配置
+resilience4j:
+  circuitbreaker:
+    instances:
+      aiPlatform:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+  retry:
+    instances:
+      aiPlatform:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+  timelimiter:
+    instances:
+      aiPlatform:
+        timeoutDuration: 30s
+
 # Spring Cloud Gateway路由配置
 spring:
   cloud:
