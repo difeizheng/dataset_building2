@@ -26,6 +26,10 @@
 import { ref, nextTick } from 'vue'
 import { chat } from '@/api/ai'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+
+// Whitelist of allowed HTML tags for markdown rendering
+const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'a', 'span']
 
 const messages = ref([])
 const inputText = ref('')
@@ -33,7 +37,8 @@ const loading = ref(false)
 const messagesRef = ref()
 
 function renderMarkdown(text) {
-  return marked.parse(text || '')
+  const rawHtml = marked.parse(text || '')
+  return DOMPurify.sanitize(rawHtml, { ALLOWED_TAGS })
 }
 
 function scrollToBottom() {
