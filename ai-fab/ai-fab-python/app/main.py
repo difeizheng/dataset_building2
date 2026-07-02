@@ -35,13 +35,13 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS配置
+# CORS配置 - 使用配置中的允许源列表
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # 注册路由

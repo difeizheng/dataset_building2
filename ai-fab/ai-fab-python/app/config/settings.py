@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     # 限流配置
     RATE_LIMIT_PER_MINUTE: int = 60
 
+    # CORS配置 - 限制允许的源域名
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",  # 前端开发服务器
+        "http://localhost:3000",  # 备用前端端口
+        "https://ai-fab.ctg.com",  # 生产环境前端域名
+    ]
+
     class Config:
         env_file = ".env"
         case_sensitive = True
