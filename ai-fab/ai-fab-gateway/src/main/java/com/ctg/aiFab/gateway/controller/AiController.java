@@ -7,6 +7,7 @@ import com.ctg.aiFab.gateway.service.AiService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -23,6 +24,7 @@ public class AiController {
     private final AiService aiService;
 
     @PostMapping("/chat")
+    @PreAuthorize("hasAuthority('ai:chat')")
     public ApiResponse<ChatResponse> chat(@Valid @RequestBody ChatRequest request,
                                          HttpServletRequest httpRequest) {
         Long userId = (Long) httpRequest.getAttribute("userId");
