@@ -19,6 +19,7 @@ import com.ctg.integration.entity.MonitorAlert;
 import com.ctg.integration.repository.MonitorAlertRepository;
 import com.ctg.integration.service.MonitorService;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MonitorServiceImpl implements MonitorService {
 
     private final MonitorAlertRepository alertRepository;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public HealthStatusVO getHealthStatus() {
@@ -42,25 +44,34 @@ public class MonitorServiceImpl implements MonitorService {
 
         Map<String, HealthStatusVO.ComponentHealth> components = new HashMap<>();
 
-        // 数据库健康检查
+        // 数据库健康检查 - 使用真实指标
+        double dbResponseTime = meterRegistry.find("hikari.connections.acquire").timer() != null
+            ? meterRegistry.find("hikari.connections.acquire").timer().mean(java.util.concurrent.TimeUnit.MILLISECONDS)
+            : 10.0;
         components.put("database", HealthStatusVO.ComponentHealth.builder()
                 .name("数据库")
                 .status("UP")
-                .responseTime(10L)
+                .responseTime((long) dbResponseTime)
                 .build());
 
-        // Redis健康检查
+        // Redis健康检查 - 使用真实指标
+        double redisResponseTime = meterRegistry.find("redis.command").timer() != null
+            ? meterRegistry.find("redis.command").timer().mean(java.util.concurrent.TimeUnit.MILLISECONDS)
+            : 5.0;
         components.put("redis", HealthStatusVO.ComponentHealth.builder()
                 .name("Redis")
                 .status("UP")
-                .responseTime(5L)
+                .responseTime((long) redisResponseTime)
                 .build());
 
-        // 外部系统集成检查
+        // 外部系统集成检查 - 使用真实指标
+        double aiPlatformResponseTime = meterRegistry.find("http.client.requests").tag("uri", "/api/ai/**").timer() != null
+            ? meterRegistry.find("http.client.requests").tag("uri", "/api/ai/**").timer().mean(java.util.concurrent.TimeUnit.MILLISECONDS)
+            : 50.0;
         components.put("ai-platform", HealthStatusVO.ComponentHealth.builder()
                 .name("AI中台")
                 .status("UP")
-                .responseTime(50L)
+                .responseTime((long) aiPlatformResponseTime)
                 .build());
 
         return HealthStatusVO.builder()
@@ -79,10 +90,11 @@ public class MonitorServiceImpl implements MonitorService {
 
         if (metricType == null || "cpu".equals(metricType)) {
             OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
+            double cpuLoad = osBean.getSystemLoadAverage() / osBean.getAvailableProcessors() * 100;
             metrics.add(MetricVO.builder()
                     .name("cpu.usage")
                     .description("CPU使用率")
-                    .value(osBean.getSystemLoadAverage())
+                    .value(cpuLoad)
                     .unit("%")
                     .type("gauge")
                     .timestamp(LocalDateTime.now())

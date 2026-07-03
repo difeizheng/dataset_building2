@@ -20,6 +20,7 @@ import com.ctg.integration.repository.AuditLogRepository;
 import com.ctg.integration.repository.UserRepository;
 import com.ctg.integration.repository.UserSessionRepository;
 import com.ctg.integration.security.JwtTokenProvider;
+import com.ctg.integration.security.MfaChallengeService;
 import com.ctg.integration.service.AuthenticationService;
 
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final AuditLogRepository auditLogRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final MfaChallengeService mfaChallengeService;
 
     @Override
     @Transactional
@@ -201,25 +203,41 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
+    public MfaChallengeResponse generateMfaChallenge(String sessionId) {
+        log.debug("生成MFA挑战: sessionId={}", sessionId);
+        String challenge = mfaChallengeService.generateChallenge(sessionId);
+        return MfaChallengeResponse.builder()
+                .challenge(challenge)
+                .sessionId(sessionId)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public boolean verifyMfaResponse(String sessionId, String signatureBase64, String publicKeyBase64) {
+        log.debug("验证MFA响应: sessionId={}", sessionId);
+
+        boolean verified = mfaChallengeService.verifyResponse(sessionId, signatureBase64, publicKeyBase64);
+
+        if (verified) {
+            // 查找会话并标记MFA已验证
+            UserSession session = sessionRepository.findBySessionToken(sessionId)
+                    .orElse(null);
+            if (session != null) {
+                session.setMfaVerified(true);
+                sessionRepository.save(session);
+                log.info("MFA验证成功，会话已标记: sessionId={}", sessionId);
+            }
+        }
+
+        return verified;
+    }
+
+    @Override
     @Transactional
     public boolean verifyMFA(String token, String code) {
-        log.debug("验证MFA码");
-
-        // 在生产环境中，这里应该验证国密数字证书或其他MFA方式
-        // 暂时简单实现：验证6位数字码
-        if (code == null || code.length() != 6 || !code.matches("\\d{6}")) {
-            return false;
-        }
-
-        // 查找会话并标记MFA已验证
-        UserSession session = sessionRepository.findBySessionToken(token)
-                .orElse(null);
-        if (session != null) {
-            session.setMfaVerified(true);
-            sessionRepository.save(session);
-        }
-
-        return true;
+        log.warn("verifyMFA(token, code)已废弃，请使用generateMfaChallenge和verifyMfaResponse");
+        return false;
     }
 
     @Override
@@ -233,25 +251,27 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
 
         // 2. 获取当前用户（从SecurityContext）
-        // 这里简化处理，实际应该从SecurityContext获取当前用户
-        // User currentUser = getCurrentUser();
+        String username = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("用户不存在: " + username));
 
         // 3. 验证旧密码
-        // if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) {
-        //     throw new BadCredentialsException("旧密码错误");
-        // }
+        if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) {
+            throw new BadCredentialsException("旧密码错误");
+        }
 
         // 4. 更新密码
-        // currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        // userRepository.save(currentUser);
+        currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(currentUser);
 
         // 5. 失效所有会话
-        // sessionRepository.invalidateAllUserSessions(currentUser.getId());
+        sessionRepository.invalidateAllUserSessions(currentUser.getId());
 
         // 6. 记录审计日志
-        // recordAuditLog(currentUser, AuditLog.OperationType.PASSWORD_CHANGE, "修改密码", null);
+        recordAuditLog(currentUser, AuditLog.OperationType.PASSWORD_CHANGE, "修改密码", null);
 
-        log.info("密码修改成功");
+        log.info("密码修改成功: username={}", username);
     }
 
     @Override

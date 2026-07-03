@@ -22,6 +22,7 @@ import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.crypto.signers.SM2Signer;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.math.ec.ECPoint;
 import org.springframework.stereotype.Component;
@@ -126,6 +127,57 @@ public class SMCryptoUtils {
         } catch (Exception e) {
             log.error("SM2解密失败", e);
             throw new CryptoException("SM2解密失败", e);
+        }
+    }
+
+    // ==================== SM2 签名/验签 ====================
+
+    /**
+     * SM2私钥签名
+     * @param data 待签名数据
+     * @param privateKeyBase64 Base64编码的私钥
+     * @return 签名结果（Base64编码）
+     */
+    public String sm2Sign(byte[] data, String privateKeyBase64) {
+        try {
+            byte[] privateKeyBytes = Base64.getDecoder().decode(privateKeyBase64);
+            BigInteger privateKeyValue = new BigInteger(1, Arrays.copyOfRange(privateKeyBytes, privateKeyBytes.length - 32, privateKeyBytes.length));
+            ECPrivateKeyParameters privKeyParams = new ECPrivateKeyParameters(privateKeyValue, SM2_DOMAIN);
+
+            SM2Signer signer = new SM2Signer();
+            signer.init(true, new ParametersWithRandom(privKeyParams, new SecureRandom()));
+            signer.update(data, 0, data.length);
+            byte[] signature = signer.generateSignature();
+
+            return Base64.getEncoder().encodeToString(signature);
+        } catch (Exception e) {
+            log.error("SM2签名失败", e);
+            throw new CryptoException("SM2签名失败", e);
+        }
+    }
+
+    /**
+     * SM2公钥验签
+     * @param data 原始数据
+     * @param signatureBase64 Base64编码的签名
+     * @param publicKeyBase64 Base64编码的公钥
+     * @return 验签是否通过
+     */
+    public boolean sm2Verify(byte[] data, String signatureBase64, String publicKeyBase64) {
+        try {
+            byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyBase64);
+            ECPoint publicKeyPoint = SM2_DOMAIN.getCurve().decodePoint(publicKeyBytes);
+            ECPublicKeyParameters pubKeyParams = new ECPublicKeyParameters(publicKeyPoint, SM2_DOMAIN);
+
+            byte[] signature = Base64.getDecoder().decode(signatureBase64);
+
+            SM2Signer signer = new SM2Signer();
+            signer.init(false, pubKeyParams);
+            signer.update(data, 0, data.length);
+            return signer.verifySignature(signature);
+        } catch (Exception e) {
+            log.error("SM2验签失败", e);
+            return false;
         }
     }
 

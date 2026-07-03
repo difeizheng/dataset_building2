@@ -63,15 +63,25 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/mfa/challenge")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "生成MFA挑战", description = "生成SM2挑战-响应MFA挑战（需认证）")
+    public ResponseEntity<MfaChallengeResponse> generateMfaChallenge(
+            @RequestParam String sessionId) {
+        log.debug("生成MFA挑战: sessionId={}", sessionId);
+        MfaChallengeResponse response = authenticationService.generateMfaChallenge(sessionId);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/mfa/verify")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "MFA验证", description = "验证双因子认证码（需认证）")
-    public ResponseEntity<Boolean> verifyMFA(
-            @RequestHeader("Authorization") String authorization,
-            @RequestParam String code) {
-        log.debug("收到MFA验证请求");
-        String token = authorization.substring(7);
-        boolean result = authenticationService.verifyMFA(token, code);
+    @Operation(summary = "验证MFA响应", description = "验证SM2签名响应（需认证）")
+    public ResponseEntity<Boolean> verifyMfaResponse(
+            @RequestParam String sessionId,
+            @RequestParam String signature,
+            @RequestParam String publicKey) {
+        log.debug("验证MFA响应: sessionId={}", sessionId);
+        boolean result = authenticationService.verifyMfaResponse(sessionId, signature, publicKey);
         return ResponseEntity.ok(result);
     }
 

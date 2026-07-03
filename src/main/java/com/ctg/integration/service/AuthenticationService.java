@@ -28,7 +28,17 @@ public interface AuthenticationService {
     void logout(String token);
 
     /**
-     * 双因子认证验证
+     * 生成MFA挑战
+     */
+    MfaChallengeResponse generateMfaChallenge(String sessionId);
+
+    /**
+     * 验证MFA响应
+     */
+    boolean verifyMfaResponse(String sessionId, String signatureBase64, String publicKeyBase64);
+
+    /**
+     * 双因子认证验证（兼容旧接口）
      */
     boolean verifyMFA(String token, String code);
 

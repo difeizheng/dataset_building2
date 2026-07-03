@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -67,17 +68,18 @@ public class IntegrationServiceImpl implements IntegrationService {
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用AI中台API
-            // 这里使用模拟实现
             String url = aiPlatformUrl + "/api/ai/invoke";
-            // ResponseEntity<AIPlatformResponse> response = restTemplate.postForEntity(url, request, AIPlatformResponse.class);
+            ResponseEntity<AIPlatformResponse> response = restTemplate.postForEntity(url, request, AIPlatformResponse.class);
 
             long duration = System.currentTimeMillis() - startTime;
-            return AIPlatformResponse.builder()
-                    .success(true)
-                    .taskId("AI-" + System.currentTimeMillis())
-                    .result("AI处理结果")
+            AIPlatformResponse result = response.getBody();
+            if (result != null) {
+                result.setDuration(duration);
+            }
+            return result != null ? result : AIPlatformResponse.builder()
+                    .success(false)
+                    .errorMessage("AI中台返回空响应")
                     .duration(duration)
-                    .modelId(request.getModelId())
                     .build();
         } catch (Exception e) {
             log.error("调用AI中台失败", e);
@@ -96,12 +98,17 @@ public class IntegrationServiceImpl implements IntegrationService {
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用大模型平台API
-            // 这里使用模拟实现
+            String url = "http://llm-platform:8080/api/llm/chat";
+            ResponseEntity<LLMResponse> response = restTemplate.postForEntity(url, request, LLMResponse.class);
+
             long duration = System.currentTimeMillis() - startTime;
-            return LLMResponse.builder()
-                    .success(true)
-                    .completion("大模型生成的回答内容")
-                    .tokensUsed(100)
+            LLMResponse result = response.getBody();
+            if (result != null) {
+                result.setDuration(duration);
+            }
+            return result != null ? result : LLMResponse.builder()
+                    .success(false)
+                    .errorMessage("大模型平台返回空响应")
                     .duration(duration)
                     .build();
         } catch (Exception e) {
@@ -129,12 +136,17 @@ public class IntegrationServiceImpl implements IntegrationService {
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用大数据平台API
+            String url = bigDataUrl + "/api/data/access";
+            ResponseEntity<BigDataResponse> response = restTemplate.postForEntity(url, request, BigDataResponse.class);
+
             long duration = System.currentTimeMillis() - startTime;
-            return BigDataResponse.builder()
-                    .success(true)
-                    .taskId("BD-" + System.currentTimeMillis())
-                    .resultData("大数据处理结果")
-                    .recordCount(1000L)
+            BigDataResponse result = response.getBody();
+            if (result != null) {
+                result.setDuration(duration);
+            }
+            return result != null ? result : BigDataResponse.builder()
+                    .success(false)
+                    .errorMessage("大数据平台返回空响应")
                     .duration(duration)
                     .build();
         } catch (Exception e) {
@@ -162,11 +174,17 @@ public class IntegrationServiceImpl implements IntegrationService {
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用三峡行云API
+            String url = xingyunUrl + "/api/approval/submit";
+            ResponseEntity<XingyunResponse> response = restTemplate.postForEntity(url, request, XingyunResponse.class);
+
             long duration = System.currentTimeMillis() - startTime;
-            return XingyunResponse.builder()
-                    .success(true)
-                    .approvalId("XY-" + System.currentTimeMillis())
-                    .status("SUBMITTED")
+            XingyunResponse result = response.getBody();
+            if (result != null) {
+                result.setDuration(duration);
+            }
+            return result != null ? result : XingyunResponse.builder()
+                    .success(false)
+                    .errorMessage("三峡行云返回空响应")
                     .duration(duration)
                     .build();
         } catch (Exception e) {
@@ -194,11 +212,17 @@ public class IntegrationServiceImpl implements IntegrationService {
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用WPS服务API
+            String url = wpsUrl + "/api/document/process";
+            ResponseEntity<WPSResponse> response = restTemplate.postForEntity(url, request, WPSResponse.class);
+
             long duration = System.currentTimeMillis() - startTime;
-            return WPSResponse.builder()
-                    .success(true)
-                    .fileId("WPS-" + System.currentTimeMillis())
-                    .fileUrl("https://wps.example.com/files/xxx")
+            WPSResponse result = response.getBody();
+            if (result != null) {
+                result.setDuration(duration);
+            }
+            return result != null ? result : WPSResponse.builder()
+                    .success(false)
+                    .errorMessage("WPS服务返回空响应")
                     .duration(duration)
                     .build();
         } catch (Exception e) {
@@ -218,11 +242,17 @@ public class IntegrationServiceImpl implements IntegrationService {
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用签章系统API
+            String url = "http://signature-system:8080/api/sign/signature";
+            ResponseEntity<SignatureResponse> response = restTemplate.postForEntity(url, request, SignatureResponse.class);
+
             long duration = System.currentTimeMillis() - startTime;
-            return SignatureResponse.builder()
-                    .success(true)
-                    .signatureId("SIG-" + System.currentTimeMillis())
-                    .signatureUrl("https://signature.example.com/signatures/xxx")
+            SignatureResponse result = response.getBody();
+            if (result != null) {
+                result.setDuration(duration);
+            }
+            return result != null ? result : SignatureResponse.builder()
+                    .success(false)
+                    .errorMessage("签章系统返回空响应")
                     .duration(duration)
                     .build();
         } catch (Exception e) {
@@ -240,11 +270,11 @@ public class IntegrationServiceImpl implements IntegrationService {
         List<SystemStatusVO> statusList = new ArrayList<>();
 
         statusList.add(checkSystemStatus("AI中台", "AI_PLATFORM", aiPlatformEnabled, aiPlatformUrl));
-        statusList.add(checkSystemStatus("大模型平台", "LLM_PLATFORM", true, ""));
+        statusList.add(checkSystemStatus("大模型平台", "LLM_PLATFORM", true, "http://llm-platform:8080"));
         statusList.add(checkSystemStatus("大数据平台", "BIG_DATA", bigDataEnabled, bigDataUrl));
         statusList.add(checkSystemStatus("三峡行云", "XINGYUN", xingyunEnabled, xingyunUrl));
         statusList.add(checkSystemStatus("WPS服务", "WPS", wpsEnabled, wpsUrl));
-        statusList.add(checkSystemStatus("签章系统", "SIGNATURE", true, ""));
+        statusList.add(checkSystemStatus("签章系统", "SIGNATURE", true, "http://signature-system:8080"));
 
         return statusList;
     }
@@ -260,14 +290,31 @@ public class IntegrationServiceImpl implements IntegrationService {
                     .build();
         }
 
-        // 实际应该调用健康检查接口
-        return SystemStatusVO.builder()
-                .systemName(name)
-                .systemCode(code)
-                .available(true)
-                .status("HEALTHY")
-                .responseTime(50L)
-                .lastCheckTime(LocalDateTime.now())
-                .build();
+        try {
+            // 实际调用健康检查接口
+            long startTime = System.currentTimeMillis();
+            String healthUrl = url + "/actuator/health";
+            restTemplate.getForObject(healthUrl, String.class);
+            long responseTime = System.currentTimeMillis() - startTime;
+
+            return SystemStatusVO.builder()
+                    .systemName(name)
+                    .systemCode(code)
+                    .available(true)
+                    .status("HEALTHY")
+                    .responseTime(responseTime)
+                    .lastCheckTime(LocalDateTime.now())
+                    .build();
+        } catch (Exception e) {
+            log.warn("系统健康检查失败: name={}, url={}", name, url);
+            return SystemStatusVO.builder()
+                    .systemName(name)
+                    .systemCode(code)
+                    .available(false)
+                    .status("UNHEALTHY")
+                    .responseTime(0L)
+                    .lastCheckTime(LocalDateTime.now())
+                    .build();
+        }
     }
 }
