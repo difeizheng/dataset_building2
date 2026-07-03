@@ -3,6 +3,7 @@ package com.ctg.integration.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.ctg.integration.dto.integration.*;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 系统集成控制器
  * 提供各外部系统集成调用接口
+ * 三权分立：仅ADMIN和OPERATOR可调用外部系统
  *
  * @author CTG
  * @since 2026-07-01
@@ -31,6 +33,7 @@ public class IntegrationController {
     private final IntegrationService integrationService;
 
     @PostMapping("/ai-platform")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "AI中台调用", description = "调用AI中台进行模型推理")
     public ResponseEntity<AIPlatformResponse> callAIPlatform(@Valid @RequestBody AIPlatformRequest request) {
         log.info("调用AI中台: modelId={}", request.getModelId());
@@ -39,6 +42,7 @@ public class IntegrationController {
     }
 
     @PostMapping("/llm")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "大模型平台调用", description = "调用大模型平台进行问答生成")
     public ResponseEntity<LLMResponse> callLLMPlatform(@Valid @RequestBody LLMRequest request) {
         log.info("调用大模型平台: model={}", request.getModel());
@@ -47,6 +51,7 @@ public class IntegrationController {
     }
 
     @PostMapping("/big-data")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "大数据平台调用", description = "调用大数据平台进行数据接入与分发")
     public ResponseEntity<BigDataResponse> accessBigDataPlatform(@Valid @RequestBody BigDataRequest request) {
         log.info("调用大数据平台: dataSourceId={}", request.getDataSourceId());
@@ -55,6 +60,7 @@ public class IntegrationController {
     }
 
     @PostMapping("/xingyun")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "三峡行云调用", description = "调用三峡行云进行审批流程")
     public ResponseEntity<XingyunResponse> callXingyunApproval(@Valid @RequestBody XingyunRequest request) {
         log.info("调用三峡行云: processId={}", request.getProcessId());
@@ -63,6 +69,7 @@ public class IntegrationController {
     }
 
     @PostMapping("/wps")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "WPS服务调用", description = "调用WPS服务中台进行文档处理")
     public ResponseEntity<WPSResponse> callWPSService(@Valid @RequestBody WPSRequest request) {
         log.info("调用WPS服务: operationType={}", request.getOperationType());
@@ -71,6 +78,7 @@ public class IntegrationController {
     }
 
     @PostMapping("/signature")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "签章系统调用", description = "调用数字化签章系统进行签章")
     public ResponseEntity<SignatureResponse> callSignatureService(@Valid @RequestBody SignatureRequest request) {
         log.info("调用签章系统: documentId={}", request.getDocumentId());
@@ -79,6 +87,7 @@ public class IntegrationController {
     }
 
     @GetMapping("/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "系统状态", description = "获取所有集成系统状态")
     public ResponseEntity<List<SystemStatusVO>> getAllSystemStatus() {
         log.debug("获取所有集成系统状态");

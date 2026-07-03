@@ -3,6 +3,7 @@ package com.ctg.integration.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.ctg.integration.dto.monitor.*;
@@ -16,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 监控控制器
  * 提供系统健康检查、性能指标、告警管理等接口
+ * 三权分立：健康检查公开；指标/资源/告警仅ADMIN/OPERATOR；告警确认仅ADMIN/OPERATOR
  *
  * @author CTG
  * @since 2026-07-01
@@ -30,7 +32,7 @@ public class MonitorController {
     private final MonitorService monitorService;
 
     @GetMapping("/health")
-    @Operation(summary = "健康检查", description = "获取系统健康状态")
+    @Operation(summary = "健康检查", description = "获取系统健康状态（公开）")
     public ResponseEntity<HealthStatusVO> getHealth() {
         log.debug("收到健康检查请求");
         HealthStatusVO status = monitorService.getHealthStatus();
@@ -38,7 +40,8 @@ public class MonitorController {
     }
 
     @GetMapping("/metrics")
-    @Operation(summary = "获取指标", description = "获取性能指标数据")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @Operation(summary = "获取指标", description = "获取性能指标数据（管理员/操作员）")
     public ResponseEntity<List<MetricVO>> getMetrics(
             @RequestParam(required = false) String metricType) {
         log.debug("获取性能指标: type={}", metricType);
@@ -47,7 +50,8 @@ public class MonitorController {
     }
 
     @GetMapping("/resources")
-    @Operation(summary = "系统资源", description = "获取系统资源使用情况")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @Operation(summary = "系统资源", description = "获取系统资源使用情况（管理员/操作员）")
     public ResponseEntity<SystemResourceVO> getResources() {
         log.debug("获取系统资源使用情况");
         SystemResourceVO resources = monitorService.getSystemResources();
@@ -55,7 +59,8 @@ public class MonitorController {
     }
 
     @GetMapping("/alerts")
-    @Operation(summary = "告警列表", description = "获取告警列表")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @Operation(summary = "告警列表", description = "获取告警列表（管理员/操作员）")
     public ResponseEntity<List<AlertVO>> getAlerts(AlertQuery query) {
         log.debug("获取告警列表");
         List<AlertVO> alerts = monitorService.getAlerts(query);
@@ -63,7 +68,8 @@ public class MonitorController {
     }
 
     @PostMapping("/alerts/{id}/acknowledge")
-    @Operation(summary = "确认告警", description = "确认指定告警")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @Operation(summary = "确认告警", description = "确认指定告警（管理员/操作员）")
     public ResponseEntity<Void> acknowledgeAlert(
             @PathVariable Long id,
             @RequestParam String operator) {
@@ -73,7 +79,8 @@ public class MonitorController {
     }
 
     @GetMapping("/statistics")
-    @Operation(summary = "监控统计", description = "获取监控统计数据")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @Operation(summary = "监控统计", description = "获取监控统计数据（管理员/操作员）")
     public ResponseEntity<MonitorStatisticsVO> getStatistics(
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime) {
