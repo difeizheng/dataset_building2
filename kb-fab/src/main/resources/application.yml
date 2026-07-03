@@ -85,3 +85,8 @@ logging:
     com.ctg.kbFab: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:?must be set}
+  expiration: 3600000  # 1 hour in milliseconds
