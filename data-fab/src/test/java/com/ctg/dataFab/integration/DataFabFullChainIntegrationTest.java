@@ -78,13 +78,13 @@ public class DataFabFullChainIntegrationTest {
     }
 
     private Long createDataset() {
-        DatasetCreateRequest request = DatasetCreateRequest.builder()
-            .datasetName("测试数据集-" + System.currentTimeMillis())
-            .description("集成测试数据集")
-            .modality(1) // 文本
-            .dataLevel(2) // 内部数据
-            .source("integration-test")
-            .build();
+        DatasetCreateRequest request = new DatasetCreateRequest();
+        request.setName("测试数据集-" + System.currentTimeMillis());
+        request.setDescription("集成测试数据集");
+        request.setModality(1); // 文本
+        request.setDataLevel(2); // 内部数据
+        request.setVersion("1.0.0");
+        request.setTags("[\"测试\",\"集成\"]");
 
         ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
             getBaseUrl() + "/data/datasets",
@@ -94,7 +94,7 @@ public class DataFabFullChainIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
 
         return (Long) response.getBody().getData();
     }
@@ -112,7 +112,7 @@ public class DataFabFullChainIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
 
         return (Long) response.getBody().getData();
     }
@@ -126,16 +126,18 @@ public class DataFabFullChainIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
     }
 
     private Long createLabelTask(Long datasetId) {
-        CreateLabelTaskRequest request = CreateLabelTaskRequest.builder()
-            .datasetId(datasetId)
-            .taskName("集成测试标注任务")
-            .labelType(1) // 分类标注
-            .assigneeIds(Arrays.asList(1L, 2L))
-            .build();
+        CreateLabelTaskRequest request = new CreateLabelTaskRequest();
+        request.setDatasetId(datasetId);
+        request.setTaskName("集成测试标注任务");
+        request.setModality(1); // 文本
+        request.setLabelType("classification");
+        request.setLabelSchema("{\"type\":\"object\",\"properties\":{\"category\":{\"type\":\"string\"}}}");
+        request.setAnnotatorIds(Arrays.asList(1L, 2L));
+        request.setDoubleBlind(1);
 
         ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
             getBaseUrl() + "/label/tasks",
@@ -145,16 +147,20 @@ public class DataFabFullChainIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
 
         return (Long) response.getBody().getData();
     }
 
     private EvaluateResponse evaluateDataset(Long datasetId) {
-        EvaluateRequest request = EvaluateRequest.builder()
-            .datasetId(datasetId)
-            .evaluationType("full")
-            .build();
+        EvaluateRequest request = new EvaluateRequest();
+        request.setDatasetId(datasetId);
+        request.setModality(1); // 文本
+        request.setBatch("test-batch");
+        Map<String, Object> metrics = new HashMap<>();
+        metrics.put("completeness", 0.95);
+        metrics.put("accuracy", 0.90);
+        request.setMetrics(metrics);
 
         ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
             getBaseUrl() + "/qa/evaluate",
@@ -164,17 +170,16 @@ public class DataFabFullChainIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
 
         return (EvaluateResponse) response.getBody().getData();
     }
 
     private PublishResponse publishDataset(Long datasetId) {
-        PublishRequest request = PublishRequest.builder()
-            .datasetId(datasetId)
-            .version("1.0.0")
-            .description("集成测试发布")
-            .build();
+        PublishRequest request = new PublishRequest();
+        request.setDatasetId(datasetId);
+        request.setVersion("1.0.0");
+        request.setLicense("Apache-2.0");
 
         ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
             getBaseUrl() + "/delivery/publish",
@@ -184,7 +189,7 @@ public class DataFabFullChainIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
 
         return (PublishResponse) response.getBody().getData();
     }
@@ -222,7 +227,7 @@ public class DataFabFullChainIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
 
         Double kappa = (Double) response.getBody().getData();
         assertNotNull(kappa, "IAA得分计算失败");
@@ -238,10 +243,48 @@ public class DataFabFullChainIntegrationTest {
         EvaluateResponse response = evaluateDataset(datasetId);
 
         assertNotNull(response, "质量评估响应为空");
-        assertNotNull(response.getPassed(), "质量门禁结果为空");
-        assertNotNull(response.getGateInfo(), "质量门禁详情为空");
+        assertNotNull(response.isPassed(), "质量门禁结果为空");
+        assertNotNull(response.getGates(), "质量门禁详情为空");
 
         // 验证质量门禁包含必要的检查项
-        assertFalse(response.getGateInfo().isEmpty(), "质量门禁检查项不应为空");
+        assertFalse(response.getGates().isEmpty(), "质量门禁检查项不应为空");
+    }
+
+    @Test
+    @DisplayName("L4数据下载阻断测试")
+    public void testL4DataDownloadBlocking() {
+        // 创建L4机密数据集
+        DatasetCreateRequest request = new DatasetCreateRequest();
+        request.setName("L4机密数据集-" + System.currentTimeMillis());
+        request.setDescription("L4机密数据测试");
+        request.setModality(1); // 文本
+        request.setDataLevel(4); // L4机密数据
+        request.setVersion("1.0.0");
+
+        ResponseEntity<ApiResponse> createResponse = restTemplate.postForEntity(
+            getBaseUrl() + "/data/datasets",
+            request,
+            ApiResponse.class
+        );
+
+        assertEquals(HttpStatus.OK, createResponse.getStatusCode());
+        assertNotNull(createResponse.getBody());
+        assertTrue(createResponse.getBody().getSuccess());
+
+        Long datasetId = (Long) createResponse.getBody().getData();
+        assertNotNull(datasetId, "L4数据集创建失败");
+
+        // 尝试下载L4数据集（应该被阻断）
+        ResponseEntity<ApiResponse> downloadResponse = restTemplate.getForEntity(
+            getBaseUrl() + "/data/datasets/" + datasetId + "/download",
+            ApiResponse.class
+        );
+
+        // 验证下载被阻断（返回403或错误响应）
+        assertTrue(
+            downloadResponse.getStatusCode() == HttpStatus.FORBIDDEN ||
+            (downloadResponse.getBody() != null && !downloadResponse.getBody().getSuccess()),
+            "L4数据下载应该被阻断"
+        );
     }
 }
