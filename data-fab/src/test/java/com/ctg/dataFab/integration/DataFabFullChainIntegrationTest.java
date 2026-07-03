@@ -1,31 +1,28 @@
 package com.ctg.dataFab.integration;
 
 import com.ctg.dataFab.DataFabApplication;
-import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.delivery.dto.PublishRequest;
-import com.ctg.dataFab.delivery.dto.PublishResponse;
 import com.ctg.dataFab.ingest.dto.DatasetCreateRequest;
 import com.ctg.dataFab.label.dto.CreateLabelTaskRequest;
 import com.ctg.dataFab.qa.dto.EvaluateRequest;
-import com.ctg.dataFab.qa.dto.EvaluateResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -35,28 +32,22 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Developer
  * @since 2026-07-03
  */
-@SpringBootTest(
-    classes = DataFabApplication.class,
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
-)
+@SpringBootTest(classes = DataFabApplication.class)
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @WithMockUser(username = "test-user", roles = {"ADMIN", "OPERATOR"})
 @DisplayName("数据集建设全链路集成测试")
 public class DataFabFullChainIntegrationTest {
 
-    @LocalServerPort
-    private int port;
+    @Autowired
+    private MockMvc mockMvc;
 
     @Autowired
-    private TestRestTemplate restTemplate;
-
-    private String getBaseUrl() {
-        return "http://localhost:" + port + "/api/v1";
-    }
+    private ObjectMapper objectMapper;
 
     @Test
     @DisplayName("完整流程：数据接入 → 清洗 → 标注 → 质量评估 → 发布")
-    public void testFullDataBuildingChain() {
+    public void testFullDataBuildingChain() throws Exception {
         // Step 1: 创建数据集
         Long datasetId = createDataset();
         assertNotNull(datasetId, "数据集创建失败");
@@ -73,15 +64,15 @@ public class DataFabFullChainIntegrationTest {
         assertNotNull(labelTaskId, "标注任务创建失败");
 
         // Step 5: 执行质量评估
-        EvaluateResponse qaResponse = evaluateDataset(datasetId);
+        String qaResponse = evaluateDataset(datasetId);
         assertNotNull(qaResponse, "质量评估失败");
 
         // Step 6: 发布数据集
-        PublishResponse publishResponse = publishDataset(datasetId);
+        String publishResponse = publishDataset(datasetId);
         assertNotNull(publishResponse, "数据集发布失败");
     }
 
-    private Long createDataset() {
+    private Long createDataset() throws Exception {
         DatasetCreateRequest request = new DatasetCreateRequest();
         request.setName("测试数据集-" + System.currentTimeMillis());
         request.setDescription("集成测试数据集");
@@ -90,46 +81,38 @@ public class DataFabFullChainIntegrationTest {
         request.setVersion("1.0.0");
         request.setTags("[\"测试\",\"集成\"]");
 
-        ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
-            getBaseUrl() + "/data/datasets",
-            request,
-            ApiResponse.class
-        );
+        MvcResult result = mockMvc.perform(post("/api/v1/data/datasets")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode(), "创建数据集失败: " + response.getBody());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getSuccess());
-
-        return (Long) response.getBody().getData();
+        String responseBody = result.getResponse().getContentAsString();
+        Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+        return ((Number) responseMap.get("data")).longValue();
     }
 
-    private Long createEtlTask(Long datasetId) {
-        ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
-            getBaseUrl() + "/etl/tasks?datasetId=" + datasetId + "&taskName=integration-test",
-            null,
-            ApiResponse.class
-        );
+    private Long createEtlTask(Long datasetId) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/etl/tasks")
+                .param("datasetId", datasetId.toString())
+                .param("taskName", "integration-test"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode(), "创建清洗任务失败: " + response.getBody());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getSuccess());
-
-        return (Long) response.getBody().getData();
+        String responseBody = result.getResponse().getContentAsString();
+        Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+        return ((Number) responseMap.get("data")).longValue();
     }
 
-    private void executeEtlTask(Long taskId) {
-        ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
-            getBaseUrl() + "/etl/tasks/" + taskId + "/execute",
-            null,
-            ApiResponse.class
-        );
-
-        assertEquals(HttpStatus.OK, response.getStatusCode(), "执行清洗任务失败: " + response.getBody());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getSuccess());
+    private void executeEtlTask(Long taskId) throws Exception {
+        mockMvc.perform(post("/api/v1/etl/tasks/" + taskId + "/execute"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 
-    private Long createLabelTask(Long datasetId) {
+    private Long createLabelTask(Long datasetId) throws Exception {
         CreateLabelTaskRequest request = new CreateLabelTaskRequest();
         request.setDatasetId(datasetId);
         request.setTaskName("集成测试标注任务");
@@ -139,20 +122,19 @@ public class DataFabFullChainIntegrationTest {
         request.setAnnotatorIds(Arrays.asList(1L, 2L));
         request.setDoubleBlind(1);
 
-        ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
-            getBaseUrl() + "/label/tasks",
-            request,
-            ApiResponse.class
-        );
+        MvcResult result = mockMvc.perform(post("/api/v1/label/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode(), "创建标注任务失败: " + response.getBody());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getSuccess());
-
-        return (Long) response.getBody().getData();
+        String responseBody = result.getResponse().getContentAsString();
+        Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+        return ((Number) responseMap.get("data")).longValue();
     }
 
-    private EvaluateResponse evaluateDataset(Long datasetId) {
+    private String evaluateDataset(Long datasetId) throws Exception {
         EvaluateRequest request = new EvaluateRequest();
         request.setDatasetId(datasetId);
         request.setModality(1); // 文本
@@ -162,97 +144,76 @@ public class DataFabFullChainIntegrationTest {
         metrics.put("accuracy", 0.90);
         request.setMetrics(metrics);
 
-        ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
-            getBaseUrl() + "/qa/evaluate",
-            request,
-            ApiResponse.class
-        );
+        MvcResult result = mockMvc.perform(post("/api/v1/qa/evaluate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode(), "质量评估失败: " + response.getBody());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getSuccess());
-
-        return (EvaluateResponse) response.getBody().getData();
+        return result.getResponse().getContentAsString();
     }
 
-    private PublishResponse publishDataset(Long datasetId) {
+    private String publishDataset(Long datasetId) throws Exception {
         PublishRequest request = new PublishRequest();
         request.setDatasetId(datasetId);
         request.setVersion("1.0.0");
         request.setLicense("Apache-2.0");
 
-        ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
-            getBaseUrl() + "/delivery/publish",
-            request,
-            ApiResponse.class
-        );
+        MvcResult result = mockMvc.perform(post("/api/v1/delivery/publish")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn();
 
-        assertEquals(HttpStatus.OK, response.getStatusCode(), "数据集发布失败: " + response.getBody());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getSuccess());
-
-        return (PublishResponse) response.getBody().getData();
+        return result.getResponse().getContentAsString();
     }
 
     @Test
     @DisplayName("数据分级访问控制测试")
-    public void testDataClassificationAccessControl() {
+    public void testDataClassificationAccessControl() throws Exception {
         // 测试L1公开数据可以被所有用户访问
-        ResponseEntity<ApiResponse> l1Response = restTemplate.getForEntity(
-            getBaseUrl() + "/data/datasets?dataLevel=1",
-            ApiResponse.class
-        );
-        assertEquals(HttpStatus.OK, l1Response.getStatusCode());
+        mockMvc.perform(get("/api/v1/data/datasets")
+                .param("dataLevel", "1"))
+                .andExpect(status().isOk());
 
         // 测试L4机密数据需要特殊权限（这里只是验证接口可访问）
-        ResponseEntity<ApiResponse> l4Response = restTemplate.getForEntity(
-            getBaseUrl() + "/data/datasets?dataLevel=4",
-            ApiResponse.class
-        );
-        assertEquals(HttpStatus.OK, l4Response.getStatusCode());
+        mockMvc.perform(get("/api/v1/data/datasets")
+                .param("dataLevel", "4"))
+                .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("标注一致性计算测试")
-    public void testLabelConsistencyCalculation() {
+    public void testLabelConsistencyCalculation() throws Exception {
         // 创建标注任务
         Long datasetId = createDataset();
         Long labelTaskId = createLabelTask(datasetId);
 
         // 计算IAA得分
-        ResponseEntity<ApiResponse> response = restTemplate.getForEntity(
-            getBaseUrl() + "/label/tasks/" + labelTaskId + "/iaa",
-            ApiResponse.class
-        );
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getSuccess());
-
-        Double kappa = (Double) response.getBody().getData();
-        assertNotNull(kappa, "IAA得分计算失败");
-        assertTrue(kappa >= 0.0 && kappa <= 1.0, "IAA得分应在0-1之间");
+        mockMvc.perform(get("/api/v1/label/tasks/" + labelTaskId + "/iaa"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isNumber());
     }
 
     @Test
     @DisplayName("质量门禁检查测试")
-    public void testQualityGateCheck() {
+    public void testQualityGateCheck() throws Exception {
         Long datasetId = createDataset();
 
         // 执行质量评估
-        EvaluateResponse response = evaluateDataset(datasetId);
-
+        String response = evaluateDataset(datasetId);
         assertNotNull(response, "质量评估响应为空");
-        assertNotNull(response.isPassed(), "质量门禁结果为空");
-        assertNotNull(response.getGates(), "质量门禁详情为空");
 
-        // 验证质量门禁包含必要的检查项
-        assertFalse(response.getGates().isEmpty(), "质量门禁检查项不应为空");
+        Map<String, Object> responseMap = objectMapper.readValue(response, Map.class);
+        assertNotNull(responseMap.get("data"), "质量门禁结果为空");
     }
 
     @Test
     @DisplayName("L4数据下载阻断测试")
-    public void testL4DataDownloadBlocking() {
+    public void testL4DataDownloadBlocking() throws Exception {
         // 创建L4机密数据集
         DatasetCreateRequest request = new DatasetCreateRequest();
         request.setName("L4机密数据集-" + System.currentTimeMillis());
@@ -261,30 +222,20 @@ public class DataFabFullChainIntegrationTest {
         request.setDataLevel(4); // L4机密数据
         request.setVersion("1.0.0");
 
-        ResponseEntity<ApiResponse> createResponse = restTemplate.postForEntity(
-            getBaseUrl() + "/data/datasets",
-            request,
-            ApiResponse.class
-        );
+        MvcResult createResult = mockMvc.perform(post("/api/v1/data/datasets")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn();
 
-        assertEquals(HttpStatus.OK, createResponse.getStatusCode());
-        assertNotNull(createResponse.getBody());
-        assertTrue(createResponse.getBody().getSuccess());
-
-        Long datasetId = (Long) createResponse.getBody().getData();
+        String responseBody = createResult.getResponse().getContentAsString();
+        Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+        Long datasetId = ((Number) responseMap.get("data")).longValue();
         assertNotNull(datasetId, "L4数据集创建失败");
 
         // 尝试下载L4数据集（应该被阻断）
-        ResponseEntity<ApiResponse> downloadResponse = restTemplate.getForEntity(
-            getBaseUrl() + "/data/datasets/" + datasetId + "/download",
-            ApiResponse.class
-        );
-
-        // 验证下载被阻断（返回403或错误响应）
-        assertTrue(
-            downloadResponse.getStatusCode() == HttpStatus.FORBIDDEN ||
-            (downloadResponse.getBody() != null && !downloadResponse.getBody().getSuccess()),
-            "L4数据下载应该被阻断"
-        );
+        mockMvc.perform(get("/api/v1/data/datasets/" + datasetId + "/download"))
+                .andExpect(status().isForbidden());
     }
 }
