@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -27,6 +28,7 @@ public class EtlRuleController {
     private final EtlRuleService etlRuleService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "创建清洗规则")
     public ApiResponse<Long> createRule(@RequestBody EtlRule rule) {
         Long id = etlRuleService.createRule(rule);
@@ -34,6 +36,7 @@ public class EtlRuleController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "获取清洗规则详情")
     public ApiResponse<EtlRule> getRule(@PathVariable Long id) {
         EtlRule rule = etlRuleService.getRuleById(id);
@@ -41,6 +44,7 @@ public class EtlRuleController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "分页查询清洗规则")
     public ApiResponse<PageResponse<EtlRule>> listRules(
             @RequestParam(required = false) Integer modality,
@@ -64,6 +68,7 @@ public class EtlRuleController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "更新清洗规则")
     public ApiResponse<Void> updateRule(@PathVariable Long id, @RequestBody EtlRule rule) {
         rule.setId(id);
@@ -72,6 +77,7 @@ public class EtlRuleController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "删除清洗规则")
     public ApiResponse<Void> deleteRule(@PathVariable Long id) {
         etlRuleService.deleteRule(id);
@@ -79,6 +85,7 @@ public class EtlRuleController {
     }
 
     @PutMapping("/{id}/toggle")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "启用/禁用清洗规则")
     public ApiResponse<Void> toggleRuleEnabled(
             @PathVariable Long id,

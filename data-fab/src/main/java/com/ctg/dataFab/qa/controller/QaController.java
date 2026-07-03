@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -31,6 +32,7 @@ public class QaController {
     private final QaService qaService;
 
     @PostMapping("/evaluate")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "执行质量评估")
     public ApiResponse<EvaluateResponse> evaluate(@Valid @RequestBody EvaluateRequest request) {
         EvaluateResponse response = qaService.evaluate(request);
@@ -38,6 +40,7 @@ public class QaController {
     }
 
     @GetMapping("/tasks/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "获取评估任务详情")
     public ApiResponse<QaTask> getTask(@PathVariable Long id) {
         QaTask task = qaService.getTaskById(id);
@@ -45,6 +48,7 @@ public class QaController {
     }
 
     @GetMapping("/tasks")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "分页查询评估任务")
     public ApiResponse<PageResponse<QaTask>> listTasks(
             @RequestParam(required = false) Long datasetId,
@@ -68,6 +72,7 @@ public class QaController {
     }
 
     @PostMapping("/tasks/{id}/manual-review")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
     @Operation(summary = "人工复审")
     public ApiResponse<Void> manualReview(
             @PathVariable Long id,
@@ -79,6 +84,7 @@ public class QaController {
     }
 
     @PostMapping("/tasks/{id}/expert-review")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "专家终审")
     public ApiResponse<Void> expertReview(
             @PathVariable Long id,
@@ -90,6 +96,7 @@ public class QaController {
     }
 
     @PostMapping("/tasks/{id}/publish")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "发布数据集")
     public ApiResponse<Void> publishDataset(@PathVariable Long id) {
         qaService.publishDataset(id);

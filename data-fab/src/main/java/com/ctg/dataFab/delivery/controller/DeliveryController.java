@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -31,6 +32,7 @@ public class DeliveryController {
     private final DeliveryService deliveryService;
 
     @PostMapping("/publish")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "发布数据集")
     public ApiResponse<PublishResponse> publish(@Valid @RequestBody PublishRequest request) {
         PublishResponse response = deliveryService.publish(request);
@@ -38,6 +40,7 @@ public class DeliveryController {
     }
 
     @GetMapping("/records/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "获取交付记录详情")
     public ApiResponse<DeliveryRecord> getRecord(@PathVariable Long id) {
         DeliveryRecord record = deliveryService.getRecordById(id);
@@ -45,6 +48,7 @@ public class DeliveryController {
     }
 
     @GetMapping("/records")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "分页查询交付记录")
     public ApiResponse<PageResponse<DeliveryRecord>> listRecords(
             @RequestParam(required = false) Long datasetId,
@@ -68,6 +72,7 @@ public class DeliveryController {
     }
 
     @GetMapping("/{id}/download")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "生成下载令牌")
     public ApiResponse<String> generateDownloadToken(
             @PathVariable Long id,
@@ -78,6 +83,7 @@ public class DeliveryController {
     }
 
     @PostMapping("/records/{id}/unpublish")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "下架数据集")
     public ApiResponse<Void> unpublish(@PathVariable Long id) {
         deliveryService.unpublish(id);
