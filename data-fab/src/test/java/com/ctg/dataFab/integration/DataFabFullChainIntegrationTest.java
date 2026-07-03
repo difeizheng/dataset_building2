@@ -4,7 +4,6 @@ import com.ctg.dataFab.DataFabApplication;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.delivery.dto.PublishRequest;
 import com.ctg.dataFab.delivery.dto.PublishResponse;
-import com.ctg.dataFab.etl.entity.EtlTask;
 import com.ctg.dataFab.ingest.dto.DatasetCreateRequest;
 import com.ctg.dataFab.label.dto.CreateLabelTaskRequest;
 import com.ctg.dataFab.qa.dto.EvaluateRequest;
@@ -15,8 +14,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Arrays;
@@ -37,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 )
 @ActiveProfiles("test")
+@WithMockUser(username = "test-user", roles = {"ADMIN", "OPERATOR"})
 @DisplayName("数据集建设全链路集成测试")
 public class DataFabFullChainIntegrationTest {
 
@@ -92,7 +96,7 @@ public class DataFabFullChainIntegrationTest {
             ApiResponse.class
         );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode(), "创建数据集失败: " + response.getBody());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().getSuccess());
 
@@ -100,17 +104,13 @@ public class DataFabFullChainIntegrationTest {
     }
 
     private Long createEtlTask(Long datasetId) {
-        Map<String, Object> params = new HashMap<>();
-        params.put("datasetId", datasetId);
-        params.put("taskName", "集成测试清洗任务");
-
         ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
             getBaseUrl() + "/etl/tasks?datasetId=" + datasetId + "&taskName=integration-test",
             null,
             ApiResponse.class
         );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode(), "创建清洗任务失败: " + response.getBody());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().getSuccess());
 
@@ -124,7 +124,7 @@ public class DataFabFullChainIntegrationTest {
             ApiResponse.class
         );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode(), "执行清洗任务失败: " + response.getBody());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().getSuccess());
     }
@@ -145,7 +145,7 @@ public class DataFabFullChainIntegrationTest {
             ApiResponse.class
         );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode(), "创建标注任务失败: " + response.getBody());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().getSuccess());
 
@@ -168,7 +168,7 @@ public class DataFabFullChainIntegrationTest {
             ApiResponse.class
         );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode(), "质量评估失败: " + response.getBody());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().getSuccess());
 
@@ -187,7 +187,7 @@ public class DataFabFullChainIntegrationTest {
             ApiResponse.class
         );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode(), "数据集发布失败: " + response.getBody());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().getSuccess());
 
