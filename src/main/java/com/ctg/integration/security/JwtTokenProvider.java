@@ -1,9 +1,11 @@
 package com.ctg.integration.security;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import javax.crypto.SecretKey;
 
@@ -16,6 +18,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
 
@@ -40,15 +43,36 @@ public class JwtTokenProvider {
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.expiration}") long jwtExpiration,
             @Value("${jwt.refresh-expiration}") long refreshExpiration) {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            keyBytes = new byte[32];
-            System.arraycopy(secret.getBytes(StandardCharsets.UTF_8), 0, keyBytes, 0,
-                    Math.min(secret.getBytes(StandardCharsets.UTF_8).length, 32));
+
+        // Validate secret key strength
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalArgumentException("JWT secret must be at least 32 characters long");
         }
+
+        // Use SM3 hash to derive key (国密算法)
+        byte[] keyBytes = hashWithSM3(secret.getBytes(StandardCharsets.UTF_8));
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.jwtExpiration = jwtExpiration;
         this.refreshExpiration = refreshExpiration;
+    }
+
+    /**
+     * SM3哈希算法（国密标准）
+     */
+    private byte[] hashWithSM3(byte[] data) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SM3", "BC");
+            return digest.digest(data);
+        } catch (Exception e) {
+            // Fallback to SHA-256 if SM3 is not available
+            log.warn("SM3 not available, falling back to SHA-256");
+            try {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                return digest.digest(data);
+            } catch (Exception ex) {
+                throw new RuntimeException("Failed to hash secret", ex);
+            }
+        }
     }
 
     /**
@@ -136,7 +160,13 @@ public class JwtTokenProvider {
     public Authentication getAuthentication(String token) {
         String username = getUsernameFromToken(token);
         List<String> roles = getRolesFromToken(token);
-        User principal = new User(username, "", List.of());
-        return new UsernamePasswordAuthenticationToken(principal, token, principal.getAuthorities());
+
+        // Convert roles to authorities with ROLE_ prefix
+        List<SimpleGrantedAuthority> authorities = roles.stream()
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                .collect(Collectors.toList());
+
+        User principal = new User(username, "", authorities);
+        return new UsernamePasswordAuthenticationToken(principal, token, authorities);
     }
 }

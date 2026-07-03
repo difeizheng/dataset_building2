@@ -166,8 +166,7 @@ INSERT INTO data_classification (classification_name, security_level, require_en
 INSERT INTO data_classification (classification_name, security_level, require_encryption, require_masking, description) VALUES ('敏感数据', 'L3', 1, 1, '敏感数据，需要加密存储和脱敏');
 INSERT INTO data_classification (classification_name, security_level, require_encryption, require_masking, description) VALUES ('机密数据', 'L4', 1, 1, '机密数据，需要严格加密和完全脱敏');
 
--- 初始化管理员账户（密码: admin123，使用BCrypt加密）
-INSERT INTO sys_user (username, password, real_name, email, enabled) VALUES ('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EO', '系统管理员', 'admin@ctg.com', 1);
-
--- 为管理员分配管理员角色
-INSERT INTO sys_user_role (user_id, role_id) VALUES (1, 1);
+-- 初始化管理员账户（密码从环境变量 ADMIN_PASSWORD 读取，首次启动时必须修改）
+-- 注意：生产环境应通过初始化脚本或管理界面创建管理员账户
+-- INSERT INTO sys_user (username, password, real_name, email, enabled) VALUES ('admin', '${ADMIN_PASSWORD_HASH}', '系统管理员', 'admin@ctg.com', 1);
+-- INSERT INTO sys_user_role (user_id, role_id) VALUES (1, 1);

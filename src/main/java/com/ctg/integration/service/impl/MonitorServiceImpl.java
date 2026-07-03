@@ -2,7 +2,6 @@ package com.ctg.integration.service.impl;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
-import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.ThreadMXBean;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -19,6 +18,7 @@ import com.ctg.integration.entity.MonitorAlert;
 import com.ctg.integration.repository.MonitorAlertRepository;
 import com.ctg.integration.service.MonitorService;
 
+import com.sun.management.OperatingSystemMXBean;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -89,8 +89,12 @@ public class MonitorServiceImpl implements MonitorService {
         List<MetricVO> metrics = new ArrayList<>();
 
         if (metricType == null || "cpu".equals(metricType)) {
-            OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
-            double cpuLoad = osBean.getSystemLoadAverage() / osBean.getAvailableProcessors() * 100;
+            OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
+            double cpuLoad = osBean.getCpuLoad() * 100; // getCpuLoad() returns 0.0-1.0
+            // Handle Windows where getCpuLoad() might return negative value initially
+            if (cpuLoad < 0) {
+                cpuLoad = 0.0;
+            }
             metrics.add(MetricVO.builder()
                     .name("cpu.usage")
                     .description("CPU使用率")
@@ -142,13 +146,17 @@ public class MonitorServiceImpl implements MonitorService {
     public SystemResourceVO getSystemResources() {
         log.debug("获取系统资源使用情况");
 
-        OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
+        OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
         MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
         ThreadMXBean threadBean = ManagementFactory.getThreadMXBean();
 
-        // CPU信息
+        // CPU信息 - 使用getCpuLoad()获取准确的CPU使用率
+        double cpuLoad = osBean.getCpuLoad() * 100;
+        if (cpuLoad < 0) {
+            cpuLoad = 0.0;
+        }
         SystemResourceVO.CpuInfo cpu = SystemResourceVO.CpuInfo.builder()
-                .usagePercent(osBean.getSystemLoadAverage() * 100 / osBean.getAvailableProcessors())
+                .usagePercent(cpuLoad)
                 .cores(osBean.getAvailableProcessors())
                 .loadAverage(osBean.getSystemLoadAverage())
                 .build();

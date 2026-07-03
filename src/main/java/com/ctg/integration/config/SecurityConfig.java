@@ -50,12 +50,11 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(csrfHandler)
-                // 对认证相关接口和webhook豁免CSRF（JWT已提供认证保障）
+                // 对认证相关接口豁免CSRF（JWT已提供认证保障）
                 .ignoringRequestMatchers(
                     "/auth/login",
                     "/auth/refresh",
-                    "/auth/validate",
-                    "/actuator/**"
+                    "/auth/validate"
                 ))
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
