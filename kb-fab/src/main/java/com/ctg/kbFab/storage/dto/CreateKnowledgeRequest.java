@@ -25,5 +25,6 @@ public class CreateKnowledgeRequest {
     private String sourceDocId;
     private String sourceDocName;
     private String domain;
+    private String dataLevel; // L1/L2/L3/L4
     private List<String> tags;
 }

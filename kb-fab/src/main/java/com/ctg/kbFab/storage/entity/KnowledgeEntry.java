@@ -42,6 +42,9 @@ public class KnowledgeEntry {
     /** 所属领域 */
     private String domain;
 
+    /** 数据分级：L1/L2/L3/L4 */
+    private String dataLevel;
+
     /** 标签JSON */
     private String tagsJson;
 

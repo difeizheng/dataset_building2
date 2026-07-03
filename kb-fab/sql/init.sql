@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS knowledge_entry (
     source_doc_id VARCHAR(64),
     source_doc_name VARCHAR(500),
     domain VARCHAR(100),
+    data_level VARCHAR(10) DEFAULT 'L1',
     tags_json CLOB,
     vector_id VARCHAR(64),
     graph_node_id VARCHAR(64),

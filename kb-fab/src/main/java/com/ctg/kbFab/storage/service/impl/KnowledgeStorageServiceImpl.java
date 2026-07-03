@@ -53,6 +53,7 @@ public class KnowledgeStorageServiceImpl implements KnowledgeStorageService {
         entry.setSourceDocId(request.getSourceDocId());
         entry.setSourceDocName(request.getSourceDocName());
         entry.setDomain(request.getDomain());
+        entry.setDataLevel(request.getDataLevel() != null ? request.getDataLevel() : "L1");
         entry.setVersion(1);
         entry.setCreateTime(LocalDateTime.now());
         entry.setUpdateTime(LocalDateTime.now());
@@ -77,6 +78,7 @@ public class KnowledgeStorageServiceImpl implements KnowledgeStorageService {
         vectorMeta.put("title", request.getTitle());
         vectorMeta.put("domain", request.getDomain());
         vectorMeta.put("type", request.getKnowledgeType());
+        vectorMeta.put("dataLevel", entry.getDataLevel());
         String vectorId = vectorStore.insert(VECTOR_INDEX, vector, vectorMeta);
         entry.setVectorId(vectorId);
 
@@ -86,6 +88,7 @@ public class KnowledgeStorageServiceImpl implements KnowledgeStorageService {
         nodeProps.put("title", request.getTitle());
         nodeProps.put("type", request.getKnowledgeType());
         nodeProps.put("domain", request.getDomain());
+        nodeProps.put("dataLevel", entry.getDataLevel());
         String graphNodeId = graphStore.createNode(request.getKnowledgeType().toUpperCase(), nodeProps);
         entry.setGraphNodeId(graphNodeId);
 
