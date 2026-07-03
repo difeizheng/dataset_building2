@@ -6,6 +6,7 @@ import com.ctg.kbFab.common.enums.KnowledgeStatus;
 import com.ctg.kbFab.common.enums.KnowledgeType;
 import com.ctg.kbFab.common.exception.BusinessException;
 import com.ctg.kbFab.common.util.Utils;
+import com.ctg.kbFab.quality.service.QualityService;
 import com.ctg.kbFab.storage.dto.CreateKnowledgeRequest;
 import com.ctg.kbFab.storage.entity.KnowledgeEntry;
 import com.ctg.kbFab.storage.graph.GraphStore;
@@ -38,6 +39,7 @@ public class KnowledgeStorageServiceImpl implements KnowledgeStorageService {
     private final GraphStore graphStore;
     private final VectorStore vectorStore;
     private final ObjectMapper objectMapper;
+    private final QualityService qualityService;
 
     private static final String VECTOR_INDEX = "kb_knowledge";
     private static final int VECTOR_DIMENSION = 768;
@@ -96,6 +98,14 @@ public class KnowledgeStorageServiceImpl implements KnowledgeStorageService {
         knowledgeEntryMapper.updateById(entry);
         log.info("Knowledge entry fully stored: id={}, vectorId={}, graphNodeId={}",
                 entry.getId(), vectorId, graphNodeId);
+
+        // M2: 自动触发质量评估
+        try {
+            qualityService.evaluate(entry.getId());
+            log.info("Auto quality assessment triggered for knowledge: {}", entry.getId());
+        } catch (Exception e) {
+            log.warn("Auto quality assessment failed for knowledge: {}", entry.getId(), e);
+        }
 
         return entry;
     }
