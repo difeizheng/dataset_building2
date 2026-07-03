@@ -109,8 +109,10 @@ CREATE TABLE IF NOT EXISTS t_label_record (
     task_id BIGINT NOT NULL,
     sample_id BIGINT NOT NULL,
     annotator_id BIGINT NOT NULL,
-    annotation TEXT,
-    duration_seconds INT,
+    annotations TEXT,
+    status INT DEFAULT 0,
+    duration_seconds BIGINT,
+    submit_time TIMESTAMP,
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted INT DEFAULT 0

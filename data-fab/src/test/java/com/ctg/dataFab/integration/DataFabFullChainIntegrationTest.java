@@ -217,16 +217,14 @@ public class DataFabFullChainIntegrationTest {
 
         // 尝试通过delivery端点下载L4数据集（需要userId参数）
         // DeliveryController: GET /api/v1/delivery/{id}/download?userId=xxx
-        // 由于L4数据需要审批，下载应被阻断
+        // 由于L4数据需要审批，下载应被阻断，返回success=false
         MvcResult downloadResult = mockMvc.perform(get("/api/v1/delivery/" + datasetId + "/download")
                 .param("userId", "1"))
                 .andReturn();
 
-        // 验证下载被阻断（返回403 Forbidden 或 返回错误响应）
-        int statusCode = downloadResult.getResponse().getStatus();
-        assertTrue(
-            statusCode == 403 || statusCode == 400 || statusCode == 500,
-            "L4数据下载应该被阻断，但返回状态码: " + statusCode
-        );
+        // 验证下载被阻断 — L4数据应返回success=false
+        String downloadBody = downloadResult.getResponse().getContentAsString();
+        Map<String, Object> downloadMap = objectMapper.readValue(downloadBody, Map.class);
+        assertFalse((Boolean) downloadMap.get("success"), "L4数据下载应被阻断，success应为false");
     }
 }
