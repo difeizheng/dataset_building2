@@ -53,6 +53,18 @@ public class IntegrationServiceImpl implements IntegrationService {
     @Value("${integration.wps.base-url:}")
     private String wpsUrl;
 
+    @Value("${integration.llm-platform.enabled:false}")
+    private boolean llmPlatformEnabled;
+
+    @Value("${integration.llm-platform.base-url:}")
+    private String llmPlatformUrl;
+
+    @Value("${integration.signature-system.enabled:false}")
+    private boolean signatureSystemEnabled;
+
+    @Value("${integration.signature-system.base-url:}")
+    private String signatureSystemUrl;
+
     @Override
     public AIPlatformResponse callAIPlatform(AIPlatformRequest request) {
         log.info("调用AI中台: modelId={}, taskType={}", request.getModelId(), request.getTaskType());
@@ -95,10 +107,18 @@ public class IntegrationServiceImpl implements IntegrationService {
     public LLMResponse callLLMPlatform(LLMRequest request) {
         log.info("调用大模型平台: model={}", request.getModel());
 
+        if (!llmPlatformEnabled) {
+            log.warn("大模型平台未启用");
+            return LLMResponse.builder()
+                    .success(false)
+                    .errorMessage("大模型平台未启用")
+                    .build();
+        }
+
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用大模型平台API
-            String url = "http://llm-platform:8080/api/llm/chat";
+            String url = llmPlatformUrl + "/api/llm/chat";
             ResponseEntity<LLMResponse> response = restTemplate.postForEntity(url, request, LLMResponse.class);
 
             long duration = System.currentTimeMillis() - startTime;
@@ -239,10 +259,18 @@ public class IntegrationServiceImpl implements IntegrationService {
     public SignatureResponse callSignatureService(SignatureRequest request) {
         log.info("调用签章系统: documentId={}, signerId={}", request.getDocumentId(), request.getSignerId());
 
+        if (!signatureSystemEnabled) {
+            log.warn("签章系统未启用");
+            return SignatureResponse.builder()
+                    .success(false)
+                    .errorMessage("签章系统未启用")
+                    .build();
+        }
+
         long startTime = System.currentTimeMillis();
         try {
             // 实际调用签章系统API
-            String url = "http://signature-system:8080/api/sign/signature";
+            String url = signatureSystemUrl + "/api/sign/signature";
             ResponseEntity<SignatureResponse> response = restTemplate.postForEntity(url, request, SignatureResponse.class);
 
             long duration = System.currentTimeMillis() - startTime;
@@ -270,11 +298,11 @@ public class IntegrationServiceImpl implements IntegrationService {
         List<SystemStatusVO> statusList = new ArrayList<>();
 
         statusList.add(checkSystemStatus("AI中台", "AI_PLATFORM", aiPlatformEnabled, aiPlatformUrl));
-        statusList.add(checkSystemStatus("大模型平台", "LLM_PLATFORM", true, "http://llm-platform:8080"));
+        statusList.add(checkSystemStatus("大模型平台", "LLM_PLATFORM", llmPlatformEnabled, llmPlatformUrl));
         statusList.add(checkSystemStatus("大数据平台", "BIG_DATA", bigDataEnabled, bigDataUrl));
         statusList.add(checkSystemStatus("三峡行云", "XINGYUN", xingyunEnabled, xingyunUrl));
         statusList.add(checkSystemStatus("WPS服务", "WPS", wpsEnabled, wpsUrl));
-        statusList.add(checkSystemStatus("签章系统", "SIGNATURE", true, "http://signature-system:8080"));
+        statusList.add(checkSystemStatus("签章系统", "SIGNATURE", signatureSystemEnabled, signatureSystemUrl));
 
         return statusList;
     }
