@@ -14,6 +14,7 @@ import com.ctg.integration.service.AuthenticationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,8 +40,13 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "用户登录", description = "使用用户名密码登录系统，返回JWT令牌（公开）")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         log.info("收到登录请求: {}", request.getUsername());
+
+        // H5修复：从服务端获取clientIp和userAgent，不信任客户端提交的值
+        request.setClientIp(extractClientIp(httpRequest));
+        request.setUserAgent(httpRequest.getHeader("User-Agent"));
+
         LoginResponse response = authenticationService.login(request);
         return ResponseEntity.ok(response);
     }
@@ -110,5 +116,24 @@ public class AuthController {
         String token = authorization.substring(7);
         boolean isValid = jwtTokenProvider.validateToken(token);
         return ResponseEntity.ok(isValid);
+    }
+
+    /**
+     * 从HttpServletRequest中提取真实客户端IP
+     * 支持代理服务器场景（X-Forwarded-For, X-Real-IP）
+     */
+    private String extractClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("X-Real-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        // X-Forwarded-For可能包含多个IP，取第一个
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
     }
 }
