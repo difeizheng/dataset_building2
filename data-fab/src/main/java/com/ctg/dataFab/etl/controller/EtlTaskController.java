@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -27,6 +28,7 @@ public class EtlTaskController {
     private final EtlTaskService etlTaskService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "创建清洗任务")
     public ApiResponse<Long> createTask(
             @RequestParam Long datasetId,
@@ -36,6 +38,7 @@ public class EtlTaskController {
     }
 
     @PostMapping("/{id}/execute")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "执行清洗任务")
     public ApiResponse<Void> executeTask(@PathVariable Long id) {
         etlTaskService.executeTask(id);
@@ -43,6 +46,7 @@ public class EtlTaskController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "获取清洗任务详情")
     public ApiResponse<EtlTask> getTask(@PathVariable Long id) {
         EtlTask task = etlTaskService.getTaskById(id);
@@ -50,6 +54,7 @@ public class EtlTaskController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "分页查询清洗任务")
     public ApiResponse<PageResponse<EtlTask>> listTasks(
             @RequestParam(required = false) Long datasetId,
@@ -73,6 +78,7 @@ public class EtlTaskController {
     }
 
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "取消清洗任务")
     public ApiResponse<Void> cancelTask(@PathVariable Long id) {
         etlTaskService.cancelTask(id);

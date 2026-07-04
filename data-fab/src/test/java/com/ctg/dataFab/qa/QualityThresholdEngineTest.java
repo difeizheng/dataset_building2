@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 质量阈值引擎单元测试
- * 覆盖 M2 四模态质量阈值检测
+ * 覆盖 M2 四模态质量阈值检测 + H2 缺失指标FAIL
  *
  * @author Developer
  * @since 2026-07-01
@@ -141,11 +141,42 @@ class QualityThresholdEngineTest {
     }
 
     @Test
-    void testMissingMetrics_defaultToZero() {
+    void testH2_missingMetrics_shouldFail() {
+        // H2修复: 缺失指标应判定为FAIL，而非默认0.0通过"<"类阈值
         Map<String, Object> metrics = new HashMap<>();
-        // 空指标，所有值默认为0
+        // 空指标，所有值缺失
 
         QualityResult result = QualityThresholdEngine.evaluate(DataModality.TEXT, metrics);
-        assertFalse(result.isPassed(), "空指标应不通过");
+        assertFalse(result.isPassed(), "缺失指标应不通过");
+        // 验证所有门禁都标记为缺失
+        result.getGates().forEach(gate -> {
+            assertTrue(gate.isMissing(), "门禁应标记为缺失: " + gate.getName());
+            assertFalse(gate.isPassed(), "缺失门禁应判定为FAIL: " + gate.getName());
+        });
+    }
+
+    @Test
+    void testH2_partialMissing_shouldFail() {
+        // H2修复: 部分指标缺失也应FAIL
+        Map<String, Object> metrics = new HashMap<>();
+        metrics.put("completeness_rate", 99.8); // 有值
+        // 其他指标缺失
+
+        QualityResult result = QualityThresholdEngine.evaluate(DataModality.TEXT, metrics);
+        assertFalse(result.isPassed(), "部分指标缺失应不通过");
+    }
+
+    @Test
+    void testH2_missingToxicity_shouldFail() {
+        // H2修复: 毒性指标缺失应FAIL (不能默认0.0通过"<0.1%"的阈值)
+        Map<String, Object> metrics = new HashMap<>();
+        metrics.put("completeness_rate", 99.8);
+        metrics.put("grammar_accuracy", 99.0);
+        metrics.put("duplicate_rate", 0.5);
+        // toxicity_rate 缺失
+        metrics.put("domain_cv", 0.2);
+
+        QualityResult result = QualityThresholdEngine.evaluate(DataModality.TEXT, metrics);
+        assertFalse(result.isPassed(), "毒性指标缺失应不通过");
     }
 }

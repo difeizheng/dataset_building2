@@ -3,6 +3,7 @@ package com.ctg.dataFab.common.exception;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,6 +28,16 @@ public class GlobalExceptionHandler {
     public ApiResponse<Void> handleBusinessException(BusinessException e) {
         log.warn("业务异常: {}", e.getMessage());
         return ApiResponse.error(e.getCode(), e.getMessage());
+    }
+
+    /**
+     * M-6: 访问拒绝异常 (返回403而非200)
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleAccessDeniedException(AccessDeniedException e) {
+        log.warn("访问拒绝: {}", e.getMessage());
+        return ApiResponse.error(403, "无权访问");
     }
 
     /**

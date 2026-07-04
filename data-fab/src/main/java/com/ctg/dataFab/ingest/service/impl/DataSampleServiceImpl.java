@@ -2,6 +2,9 @@ package com.ctg.dataFab.ingest.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine.ClassificationContext;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine.ClassificationResult;
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.enums.DataStatus;
 import com.ctg.dataFab.common.exception.BusinessException;
@@ -37,7 +40,26 @@ public class DataSampleServiceImpl implements DataSampleService {
         DataSample dataSample = new DataSample();
         dataSample.setName(request.getName());
         dataSample.setModality(request.getModality());
-        dataSample.setDataLevel(request.getDataLevel());
+
+        // C1: 自动分级 - 如果未指定分级，使用分级引擎自动判定
+        Integer dataLevel = request.getDataLevel();
+        if (dataLevel == null) {
+            ClassificationContext context = new ClassificationContext(
+                    request.getName(),
+                    null,
+                    request.getMimeType()
+            );
+            context.setTags(request.getMetadata());
+            context.setMetadata(request.getMetadata());
+
+            ClassificationResult classificationResult = DataClassificationEngine.classify(context);
+            dataLevel = classificationResult.getLevel().getCode();
+            log.info("自动分级结果: level={}, reason={}",
+                    classificationResult.getLevel().getName(),
+                    classificationResult.getReason());
+        }
+        dataSample.setDataLevel(dataLevel);
+
         dataSample.setStatus(DataStatus.NEW.getCode());
         dataSample.setSource(request.getSource());
         dataSample.setFilePath(request.getFilePath());
@@ -53,7 +75,7 @@ public class DataSampleServiceImpl implements DataSampleService {
             datasetService.updateDatasetStats(dataSample.getDatasetId());
         }
 
-        log.info("数据样本创建成功, ID: {}", dataSample.getId());
+        log.info("数据样本创建成功, ID: {}, 分级: L{}", dataSample.getId(), dataLevel);
         return dataSample.getId();
     }
 

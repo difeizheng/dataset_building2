@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -31,6 +32,7 @@ public class LabelTaskController {
     private final LabelTaskService labelTaskService;
 
     @PostMapping("/tasks")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "创建标注任务")
     public ApiResponse<Long> createTask(@Valid @RequestBody CreateLabelTaskRequest request) {
         Long id = labelTaskService.createTask(request);
@@ -38,6 +40,7 @@ public class LabelTaskController {
     }
 
     @GetMapping("/tasks/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "获取标注任务详情")
     public ApiResponse<LabelTask> getTask(@PathVariable Long id) {
         LabelTask task = labelTaskService.getTaskById(id);
@@ -45,6 +48,7 @@ public class LabelTaskController {
     }
 
     @GetMapping("/tasks")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
     @Operation(summary = "分页查询标注任务")
     public ApiResponse<PageResponse<LabelTask>> listTasks(
             @RequestParam(required = false) Long datasetId,
@@ -68,6 +72,7 @@ public class LabelTaskController {
     }
 
     @PostMapping("/submit")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     @Operation(summary = "提交标注")
     public ApiResponse<Void> submitLabel(@Valid @RequestBody SubmitLabelRequest request) {
         labelTaskService.submitLabel(request);
@@ -75,6 +80,7 @@ public class LabelTaskController {
     }
 
     @PostMapping("/arbitrate")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "触发仲裁")
     public ApiResponse<Void> triggerArbitration(@RequestParam Long taskId) {
         labelTaskService.triggerArbitration(taskId);
@@ -82,6 +88,7 @@ public class LabelTaskController {
     }
 
     @GetMapping("/tasks/{id}/iaa")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
     @Operation(summary = "计算IAA得分")
     public ApiResponse<Double> calculateIaa(@PathVariable Long id) {
         Double kappa = labelTaskService.calculateIaaScore(id);
@@ -89,6 +96,7 @@ public class LabelTaskController {
     }
 
     @PostMapping("/tasks/{id}/relabel")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "触发重标")
     public ApiResponse<Void> triggerRelabel(@PathVariable Long id) {
         labelTaskService.triggerRelabel(id);
