@@ -1,0 +1,1475 @@
+openapi: 3.0.3
+info:
+  title: 集成与管控子系统 API
+  description: |
+    集成与管控子系统 REST API 文档
+
+    提供统一身份认证、安全管控、系统集成、运维监控等功能接口。
+
+    **国产化技术栈：**
+    - 数据库：达梦 DM8
+    - 国密算法：SM2/SM3/SM4
+    - 认证：OAuth2.0 + JWT
+
+    **安全特性：**
+    - 三权分立（管理员/审计员/操作员）
+    - 数据分级管控（L1-L4）
+    - 完整审计日志
+  version: 1.0.0
+  contact:
+    name: CTG Integration Team
+servers:
+  - url: http://localhost:8080/api
+    description: 开发环境
+
+tags:
+  - name: 认证管理
+    description: 用户登录、登出、令牌管理
+  - name: 用户管理
+    description: 用户CRUD和角色分配
+  - name: 审计日志
+    description: 审计日志查询和统计
+  - name: 数据分级
+    description: 数据分级管理
+  - name: 系统集成
+    description: 外部系统集成调用
+  - name: 运维监控
+    description: 系统健康检查、性能指标、告警管理
+
+paths:
+  /auth/login:
+    post:
+      tags: [认证管理]
+      summary: 用户登录
+      description: 使用用户名密码登录系统，返回JWT令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: 认证失败
+        '423':
+          description: 账户已锁定
+
+  /auth/refresh:
+    post:
+      tags: [认证管理]
+      summary: 刷新令牌
+      description: 使用刷新令牌获取新的访问令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+
+  /auth/logout:
+    post:
+      tags: [认证管理]
+      summary: 用户登出
+      description: 使当前令牌失效
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 登出成功
+
+  /auth/mfa/verify:
+    post:
+      tags: [认证管理]
+      summary: MFA验证
+      description: 验证双因子认证码
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 验证结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+
+  /auth/password/change:
+    post:
+      tags: [认证管理]
+      summary: 修改密码
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: 修改成功
+
+  /auth/permissions:
+    get:
+      tags: [认证管理]
+      summary: 获取权限
+      description: 获取当前用户权限列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 权限列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /auth/validate:
+    get:
+      tags: [认证管理]
+      summary: 验证令牌
+      description: 验证JWT令牌是否有效
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 验证结果
+          content:
+            application/json:
+              schema:
+                type: boolean
+
+  /users:
+    post:
+      tags: [用户管理]
+      summary: 创建用户
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserVO'
+    get:
+      tags: [用户管理]
+      summary: 用户列表
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: enabled
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 用户列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserVO'
+
+  /users/{id}:
+    get:
+      tags: [用户管理]
+      summary: 获取用户
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 用户详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserVO'
+    put:
+      tags: [用户管理]
+      summary: 更新用户
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserVO'
+    delete:
+      tags: [用户管理]
+      summary: 删除用户
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 删除成功
+
+  /users/{id}/status:
+    patch:
+      tags: [用户管理]
+      summary: 切换状态
+      description: 启用/禁用用户
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: enabled
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 状态切换成功
+
+  /users/{id}/roles:
+    post:
+      tags: [用户管理]
+      summary: 分配角色
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: integer
+                format: int64
+      responses:
+        '200':
+          description: 角色分配成功
+
+  /audit/logs:
+    get:
+      tags: [审计日志]
+      summary: 查询日志
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: operation
+          in: query
+          schema:
+            type: string
+        - name: startTime
+          in: query
+          schema:
+            type: string
+        - name: endTime
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 日志列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLogVO'
+                  totalElements:
+                    type: integer
+                  totalPages:
+                    type: integer
+
+  /audit/statistics:
+    get:
+      tags: [审计日志]
+      summary: 统计数据
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: startTime
+          in: query
+          schema:
+            type: string
+        - name: endTime
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 统计数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditStatistics'
+
+  /audit/clean:
+    post:
+      tags: [审计日志]
+      summary: 清理日志
+      description: 清理过期审计日志
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: retentionDays
+          in: query
+          schema:
+            type: integer
+            default: 180
+      responses:
+        '200':
+          description: 清理数量
+          content:
+            application/json:
+              schema:
+                type: integer
+                format: int64
+
+  /data-classification:
+    post:
+      tags: [数据分级]
+      summary: 创建分级
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClassificationRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataClassificationVO'
+    get:
+      tags: [数据分级]
+      summary: 分级列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 分级列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DataClassificationVO'
+
+  /data-classification/{id}:
+    get:
+      tags: [数据分级]
+      summary: 获取分级
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 分级详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataClassificationVO'
+    put:
+      tags: [数据分级]
+      summary: 更新分级
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClassificationRequest'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [数据分级]
+      summary: 删除分级
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: 删除成功
+
+  /data-classification/level/{level}:
+    get:
+      tags: [数据分级]
+      summary: 按级别获取
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: level
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [L1, L2, L3, L4]
+      responses:
+        '200':
+          description: 分级信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataClassificationVO'
+
+  /integration/ai-platform:
+    post:
+      tags: [系统集成]
+      summary: AI中台调用
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIPlatformRequest'
+      responses:
+        '200':
+          description: 调用结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIPlatformResponse'
+
+  /integration/llm:
+    post:
+      tags: [系统集成]
+      summary: 大模型平台调用
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LLMRequest'
+      responses:
+        '200':
+          description: 调用结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMResponse'
+
+  /integration/big-data:
+    post:
+      tags: [系统集成]
+      summary: 大数据平台调用
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BigDataRequest'
+      responses:
+        '200':
+          description: 调用结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BigDataResponse'
+
+  /integration/xingyun:
+    post:
+      tags: [系统集成]
+      summary: 三峡行云调用
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/XingyunRequest'
+      responses:
+        '200':
+          description: 调用结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XingyunResponse'
+
+  /integration/wps:
+    post:
+      tags: [系统集成]
+      summary: WPS服务调用
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WPSRequest'
+      responses:
+        '200':
+          description: 调用结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPSResponse'
+
+  /integration/signature:
+    post:
+      tags: [系统集成]
+      summary: 签章系统调用
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignatureRequest'
+      responses:
+        '200':
+          description: 调用结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignatureResponse'
+
+  /integration/status:
+    get:
+      tags: [系统集成]
+      summary: 系统状态
+      description: 获取所有集成系统状态
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 系统状态列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SystemStatusVO'
+
+  /monitor/health:
+    get:
+      tags: [运维监控]
+      summary: 健康检查
+      responses:
+        '200':
+          description: 健康状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatusVO'
+
+  /monitor/metrics:
+    get:
+      tags: [运维监控]
+      summary: 获取指标
+      parameters:
+        - name: metricType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 指标列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetricVO'
+
+  /monitor/resources:
+    get:
+      tags: [运维监控]
+      summary: 系统资源
+      responses:
+        '200':
+          description: 资源使用情况
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemResourceVO'
+
+  /monitor/alerts:
+    get:
+      tags: [运维监控]
+      summary: 告警列表
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 告警列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertVO'
+
+  /monitor/alerts/{id}/acknowledge:
+    post:
+      tags: [运维监控]
+      summary: 确认告警
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: operator
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 确认成功
+
+  /monitor/statistics:
+    get:
+      tags: [运维监控]
+      summary: 监控统计
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: startTime
+          in: query
+          schema:
+            type: string
+        - name: endTime
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 统计数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorStatisticsVO'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        mfaCode:
+          type: string
+        clientIp:
+          type: string
+        userAgent:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+        username:
+          type: string
+        realName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        mfaRequired:
+          type: boolean
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    ChangePasswordRequest:
+      type: object
+      required: [oldPassword, newPassword, confirmPassword]
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 32
+        confirmPassword:
+          type: string
+
+    CreateUserRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 64
+        password:
+          type: string
+          minLength: 8
+          maxLength: 32
+        realName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        employeeId:
+          type: string
+        department:
+          type: string
+        roleIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        realName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        department:
+          type: string
+        roleIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    UserVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        realName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        employeeId:
+          type: string
+        department:
+          type: string
+        enabled:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleVO'
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        roleType:
+          type: string
+          enum: [ADMIN, AUDITOR, OPERATOR]
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionVO'
+
+    PermissionVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [MENU, BUTTON, API, DATA]
+        resource:
+          type: string
+        method:
+          type: string
+
+    AuditLogVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        username:
+          type: string
+        realName:
+          type: string
+        clientIp:
+          type: string
+        operation:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+        resourceName:
+          type: string
+        description:
+          type: string
+        requestMethod:
+          type: string
+        requestUrl:
+          type: string
+        responseStatus:
+          type: integer
+        result:
+          type: string
+          enum: [SUCCESS, FAILURE]
+        duration:
+          type: integer
+          format: int64
+        dataLevel:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AuditStatistics:
+      type: object
+      properties:
+        totalOperations:
+          type: integer
+          format: int64
+        successCount:
+          type: integer
+          format: int64
+        failureCount:
+          type: integer
+          format: int64
+        operationCounts:
+          type: array
+          items:
+            type: object
+            properties:
+              operation:
+                type: string
+              count:
+                type: integer
+                format: int64
+
+    CreateClassificationRequest:
+      type: object
+      required: [classificationName, securityLevel]
+      properties:
+        classificationName:
+          type: string
+        securityLevel:
+          type: string
+          enum: [L1, L2, L3, L4]
+        requireEncryption:
+          type: boolean
+        requireMasking:
+          type: boolean
+        maskingRule:
+          type: string
+        accessPolicy:
+          type: string
+        description:
+          type: string
+
+    UpdateClassificationRequest:
+      type: object
+      properties:
+        classificationName:
+          type: string
+        requireEncryption:
+          type: boolean
+        requireMasking:
+          type: boolean
+        maskingRule:
+          type: string
+        accessPolicy:
+          type: string
+        description:
+          type: string
+
+    DataClassificationVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        classificationName:
+          type: string
+        securityLevel:
+          type: string
+        requireEncryption:
+          type: boolean
+        requireMasking:
+          type: boolean
+        maskingRule:
+          type: string
+        accessPolicy:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AIPlatformRequest:
+      type: object
+      required: [modelId, taskType]
+      properties:
+        modelId:
+          type: string
+        taskType:
+          type: string
+        parameters:
+          type: object
+          additionalProperties: true
+        inputData:
+          type: string
+        timeout:
+          type: integer
+
+    AIPlatformResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        taskId:
+          type: string
+        result:
+          type: string
+        errorMessage:
+          type: string
+        duration:
+          type: integer
+          format: int64
+        modelId:
+          type: string
+
+    LLMRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+        model:
+          type: string
+        maxTokens:
+          type: integer
+        temperature:
+          type: number
+          format: double
+        systemPrompt:
+          type: string
+
+    LLMResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        completion:
+          type: string
+        tokensUsed:
+          type: integer
+        errorMessage:
+          type: string
+        duration:
+          type: integer
+          format: int64
+
+    BigDataRequest:
+      type: object
+      required: [dataSourceId, operationType]
+      properties:
+        dataSourceId:
+          type: string
+        operationType:
+          type: string
+        queryParameters:
+          type: object
+          additionalProperties: true
+        dataPayload:
+          type: string
+
+    BigDataResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        taskId:
+          type: string
+        resultData:
+          type: string
+        recordCount:
+          type: integer
+          format: int64
+        errorMessage:
+          type: string
+        duration:
+          type: integer
+          format: int64
+
+    XingyunRequest:
+      type: object
+      required: [processId, operationType]
+      properties:
+        processId:
+          type: string
+        operationType:
+          type: string
+        formData:
+          type: object
+          additionalProperties: true
+        approvalComment:
+          type: string
+
+    XingyunResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        approvalId:
+          type: string
+        status:
+          type: string
+        errorMessage:
+          type: string
+        duration:
+          type: integer
+          format: int64
+
+    WPSRequest:
+      type: object
+      required: [operationType]
+      properties:
+        operationType:
+          type: string
+        fileUrl:
+          type: string
+        fileContent:
+          type: string
+        outputFormat:
+          type: string
+
+    WPSResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        fileId:
+          type: string
+        fileUrl:
+          type: string
+        errorMessage:
+          type: string
+        duration:
+          type: integer
+          format: int64
+
+    SignatureRequest:
+      type: object
+      required: [documentId, signerId]
+      properties:
+        documentId:
+          type: string
+        signerId:
+          type: string
+        signatureType:
+          type: string
+        signaturePosition:
+          type: string
+
+    SignatureResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        signatureId:
+          type: string
+        signatureUrl:
+          type: string
+        errorMessage:
+          type: string
+        duration:
+          type: integer
+          format: int64
+
+    SystemStatusVO:
+      type: object
+      properties:
+        systemName:
+          type: string
+        systemCode:
+          type: string
+        available:
+          type: boolean
+        status:
+          type: string
+        responseTime:
+          type: integer
+          format: int64
+        lastCheckTime:
+          type: string
+          format: date-time
+        errorMessage:
+          type: string
+
+    HealthStatusVO:
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        checkTime:
+          type: string
+          format: date-time
+        components:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+              message:
+                type: string
+              responseTime:
+                type: integer
+                format: int64
+
+    MetricVO:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+        type:
+          type: string
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    SystemResourceVO:
+      type: object
+      properties:
+        cpu:
+          type: object
+          properties:
+            usagePercent:
+              type: number
+              format: double
+            cores:
+              type: integer
+            loadAverage:
+              type: number
+              format: double
+        memory:
+          type: object
+          properties:
+            totalBytes:
+              type: integer
+              format: int64
+            usedBytes:
+              type: integer
+              format: int64
+            freeBytes:
+              type: integer
+              format: int64
+            usagePercent:
+              type: number
+              format: double
+        jvm:
+          type: object
+          properties:
+            heapUsed:
+              type: integer
+              format: int64
+            heapMax:
+              type: integer
+              format: int64
+            threadCount:
+              type: integer
+            uptime:
+              type: integer
+              format: int64
+
+    AlertVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        alertName:
+          type: string
+        alertType:
+          type: string
+        severity:
+          type: string
+          enum: [INFO, WARNING, CRITICAL, FATAL]
+        status:
+          type: string
+          enum: [TRIGGERED, ACKNOWLEDGED, RESOLVED]
+        message:
+          type: string
+        source:
+          type: string
+        metricName:
+          type: string
+        metricValue:
+          type: number
+          format: double
+        threshold:
+          type: number
+          format: double
+        triggeredAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: string
+          format: date-time
+        acknowledgedBy:
+          type: string
+        resolvedAt:
+          type: string
+          format: date-time
+
+    MonitorStatisticsVO:
+      type: object
+      properties:
+        totalAlerts:
+          type: integer
+          format: int64
+        activeAlerts:
+          type: integer
+          format: int64
+        resolvedAlerts:
+          type: integer
+          format: int64
+        avgResponseTime:
+          type: number
+          format: double
+        systemUptime:
+          type: number
+          format: double
+        alertCountsByType:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              count:
+                type: integer
+                format: int64
+        alertCountsBySeverity:
+          type: array
+          items:
+            type: object
+            properties:
+              severity:
+                type: string
+              count:
+                type: integer
+                format: int64
