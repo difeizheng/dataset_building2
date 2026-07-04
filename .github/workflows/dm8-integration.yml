@@ -1,0 +1,108 @@
+name: DM8 Integration Test
+
+on:
+  push:
+    branches: [ main, agent/developer/data-fab-fix ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dm8-integration-test:
+    name: DM8 (达梦) Integration Test
+    runs-on: ubuntu-latest
+
+    services:
+      dm8:
+        image: dm8:latest
+        ports:
+          - 5236:5236
+        env:
+          PAGE_SIZE: 16
+          LD_LIBRARY_PATH: /opt/dmdbms/bin
+          EXT_PATH: /opt/dmdbms/drivers/dpi
+
+    env:
+      DM8_TEST_ENABLED: 'true'
+      DM8_TEST_HOST: localhost
+      DM8_TEST_PORT: 5236
+      DM8_TEST_USERNAME: SYSDBA
+      DM8_TEST_PASSWORD: SYSDBA
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Wait for DM8 to be ready
+        run: |
+          echo "Waiting for DM8 database to start..."
+          for i in {1..30}; do
+            if nc -z localhost 5236; then
+              echo "DM8 is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run H2 Integration Tests
+        run: |
+          cd data-fab
+          mvn clean test -Dtest=DataFabFullChainIntegrationTest
+        continue-on-error: false
+
+      - name: Run DM8 Integration Tests
+        run: |
+          cd data-fab
+          mvn clean test -Dtest=DataFabDm8IntegrationTest
+        continue-on-error: false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: dm8-test-results
+          path: data-fab/target/surefire-reports/
+          retention-days: 7
+
+      - name: Upload coverage report
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: dm8-coverage-report
+          path: data-fab/target/site/jacoco/
+          retention-days: 7
+
+  h2-integration-test:
+    name: H2 Integration Test (Baseline)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run H2 Tests
+        run: |
+          cd data-fab
+          mvn clean test -Dtest=DataFabFullChainIntegrationTest
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: h2-test-results
+          path: data-fab/target/surefire-reports/
+          retention-days: 7
