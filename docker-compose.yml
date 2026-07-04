@@ -1,0 +1,237 @@
+# 三峡集团人工智能数据集建设和能力封装服务平台
+# docker-compose.yml - 本地开发/测试环境
+
+version: '3.8'
+
+services:
+  # ==================== 基础设施 ====================
+
+  # 达梦 DM8 数据库（国产化要求）
+  # 注意：达梦数据库需要商业授权，此处使用评估版镜像仅用于开发测试
+  dm8:
+    image: registry.cn-hangzhou.aliyuncs.com/ctg-dameng/dm8:${DM8_VERSION:-latest}
+    container_name: ctg-dm8
+    environment:
+      - MY_CHARSET=utf8
+      - SYSDBA_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+    ports:
+      - "5236:5236"
+    volumes:
+      - dm8_data:/opt/dm8/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./kb-fab/sql/init.sql:/docker-entrypoint-initdb.d/02-kb-init.sql
+      - ./ai-fab/sql/init.sql:/docker-entrypoint-initdb.d/03-ai-init.sql
+    healthcheck:
+      test: ["CMD", "echo", "select 1 from dual;", "|", "disql", "SYSDBA/SyDbCli_2024@localhost:5236"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ctg-network
+
+  # Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: ctg-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis123} --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ctg-network
+
+  # ==================== Java 子系统 ====================
+
+  # 集成与管控子系统 (gov-fab)
+  # 端口: 8080 (context-path: /api)
+  gov-fab:
+    build:
+      context: .
+      dockerfile: Dockerfile.gov-fab
+    container_name: ctg-gov-fab
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=dm8
+      - DB_PORT=5236
+      - DB_NAME=INTEGRATION_CONTROL
+      - DB_USERNAME=SYSDBA
+      - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
+      - JWT_SECRET=${JWT_SECRET:-your-256-bit-secret-key-for-jwt-signing}
+    ports:
+      - "8080:8080"
+    depends_on:
+      dm8:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - ctg-network
+
+  # 数据建设子系统 (data-fab)
+  # 端口映射: 8081:8080 (避免与 gov-fab 冲突)
+  data-fab:
+    build:
+      context: ./data-fab
+      dockerfile: Dockerfile
+    container_name: ctg-data-fab
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_USERNAME=SYSDBA
+      - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
+    ports:
+      - "8081:8080"
+    depends_on:
+      dm8:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - ctg-network
+
+  # 知识管理子系统 (kb-fab)
+  # 端口映射: 8082:8080
+  kb-fab:
+    build:
+      context: ./kb-fab
+      dockerfile: Dockerfile
+    container_name: ctg-kb-fab
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_USERNAME=SYSDBA
+      - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
+    ports:
+      - "8082:8080"
+    depends_on:
+      dm8:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - ctg-network
+
+  # AI 能力子系统 - Java Gateway (ai-fab-gateway)
+  # 端口映射: 8083:8080
+  ai-fab-gateway:
+    build:
+      context: ./ai-fab/ai-fab-gateway
+      dockerfile: Dockerfile
+    container_name: ctg-ai-fab-gateway
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_USERNAME=SYSDBA
+      - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
+    ports:
+      - "8083:8080"
+    depends_on:
+      dm8:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - ctg-network
+
+  # ==================== Python 子系统 ====================
+
+  # AI 能力子系统 - Python FastAPI (ai-fab-python)
+  # 端口映射: 8000:8000
+  ai-fab-python:
+    build:
+      context: ./ai-fab/ai-fab-python
+      dockerfile: Dockerfile
+    container_name: ctg-ai-fab-python
+    environment:
+      - DEBUG=false
+      - DATABASE_URL=dm+pymysql://SYSDBA:${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}@dm8:5236/AI_FAB
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
+      - AI_PLATFORM_BASE_URL=${AI_PLATFORM_BASE_URL:-http://ai-platform.ctg.com}
+    ports:
+      - "8000:8000"
+    depends_on:
+      dm8:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - ctg-network
+
+  # ==================== 前端 ====================
+
+  # AI 能力子系统 - Vue 前端
+  ai-fab-frontend:
+    build:
+      context: ./ai-fab/ai-fab-frontend
+      dockerfile: Dockerfile
+    container_name: ctg-ai-fab-frontend
+    environment:
+      - VITE_API_BASE_URL=http://ai-fab-gateway:8080
+      - VITE_PYTHON_API_URL=http://ai-fab-python:8000
+    ports:
+      - "3000:80"
+    depends_on:
+      - ai-fab-gateway
+      - ai-fab-python
+    networks:
+      - ctg-network
+
+# ==================== 网络和存储 ====================
+
+networks:
+  ctg-network:
+    driver: bridge
+    name: ctg-network
+
+volumes:
+  dm8_data:
+    name: ctg-dm8-data
+  redis_data:
+    name: ctg-redis-data

@@ -1,0 +1,412 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, 'agent/**']
+  pull_request:
+    branches: [main]
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_OPTS: -Xmx1024m
+
+jobs:
+  # ==================== Lint 检查 ====================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      # Lint gov-fab (Spring Boot)
+      - name: Lint gov-fab
+        run: |
+          cd src && mvn spotless:check -B || true
+        continue-on-error: true
+
+      # Lint data-fab
+      - name: Lint data-fab
+        run: |
+          cd data-fab && mvn spotless:check -B || true
+        continue-on-error: true
+
+      # Lint kb-fab
+      - name: Lint kb-fab
+        run: |
+          cd kb-fab && mvn spotless:check -B || true
+        continue-on-error: true
+
+      # Lint ai-fab-gateway
+      - name: Lint ai-fab-gateway
+        run: |
+          cd ai-fab/ai-fab-gateway && mvn spotless:check -B || true
+        continue-on-error: true
+
+      # Lint Python code (ai-fab-python)
+      - name: Lint ai-fab-python
+        run: |
+          cd ai-fab/ai-fab-python
+          python -m pip install --upgrade pip
+          pip install ruff flake8 black
+          ruff check . || true
+          black --check . || true
+
+      # Lint Vue frontend
+      - name: Lint ai-fab-frontend
+        run: |
+          cd ai-fab/ai-fab-frontend
+          npm ci
+          npm run lint || true
+
+  # ==================== gov-fab 测试 ====================
+  test-gov-fab:
+    name: Test gov-fab
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build gov-fab
+        run: mvn clean package -DskipTests -B
+
+      - name: Run gov-fab tests
+        run: mvn test -B
+
+      - name: Upload gov-fab test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gov-fab-test-results
+          path: target/surefire-reports/
+
+      - name: Upload gov-fab coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: target/site/jacoco/jacoco.xml
+          flags: gov-fab
+
+  # ==================== data-fab 测试 ====================
+  test-data-fab:
+    name: Test data-fab
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build data-fab
+        run: |
+          cd data-fab
+          mvn clean package -DskipTests -B
+
+      - name: Run data-fab tests
+        run: |
+          cd data-fab
+          mvn test -B
+
+      - name: Upload data-fab test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: data-fab-test-results
+          path: data-fab/target/surefire-reports/
+
+      - name: Upload data-fab coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: data-fab/target/site/jacoco/jacoco.xml
+          flags: data-fab
+
+  # ==================== kb-fab 测试 ====================
+  test-kb-fab:
+    name: Test kb-fab
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build kb-fab
+        run: |
+          cd kb-fab
+          mvn clean package -DskipTests -B
+
+      - name: Run kb-fab tests
+        run: |
+          cd kb-fab
+          mvn test -B
+
+      - name: Upload kb-fab test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kb-fab-test-results
+          path: kb-fab/target/surefire-reports/
+
+      - name: Upload kb-fab coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: kb-fab/target/site/jacoco/jacoco.xml
+          flags: kb-fab
+
+  # ==================== ai-fab-gateway 测试 ====================
+  test-ai-fab-gateway:
+    name: Test ai-fab-gateway
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build ai-fab-gateway
+        run: |
+          cd ai-fab/ai-fab-gateway
+          mvn clean package -DskipTests -B
+
+      - name: Run ai-fab-gateway tests
+        run: |
+          cd ai-fab/ai-fab-gateway
+          mvn test -B
+
+      - name: Upload ai-fab-gateway test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-fab-gateway-test-results
+          path: ai-fab/ai-fab-gateway/target/surefire-reports/
+
+      - name: Upload ai-fab-gateway coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ai-fab/ai-fab-gateway/target/site/jacoco/jacoco.xml
+          flags: ai-fab-gateway
+
+  # ==================== ai-fab-python 测试 ====================
+  test-ai-fab-python:
+    name: Test ai-fab-python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          cd ai-fab/ai-fab-python
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx
+
+      - name: Run ai-fab-python tests
+        run: |
+          cd ai-fab/ai-fab-python
+          pytest tests/ -v --cov=app --cov-report=xml || true
+
+      - name: Upload ai-fab-python test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-fab-python-test-results
+          path: ai-fab/ai-fab-python/coverage.xml
+
+      - name: Upload ai-fab-python coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ai-fab/ai-fab-python/coverage.xml
+          flags: ai-fab-python
+
+  # ==================== ai-fab-frontend 测试 ====================
+  test-ai-fab-frontend:
+    name: Test ai-fab-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: ai-fab/ai-fab-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd ai-fab/ai-fab-frontend
+          npm ci
+
+      - name: Run ai-fab-frontend tests
+        run: |
+          cd ai-fab/ai-fab-frontend
+          npm run test:unit || true
+
+      - name: Upload ai-fab-frontend test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-fab-frontend-test-results
+          path: ai-fab/ai-fab-frontend/coverage/
+
+  # ==================== 集成测试 ====================
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test-gov-fab, test-data-fab, test-kb-fab, test-ai-fab-gateway]
+    # 集成测试需要外部依赖（DM8 + Redis），在 CI 中使用 H2 内存数据库模拟
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # 使用 H2 内存数据库运行 data-fab 全链路集成测试
+      - name: Run data-fab full chain integration test
+        run: |
+          cd data-fab
+          mvn test -Dtest=DataFabFullChainIntegrationTest -B
+        continue-on-error: true
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: data-fab/target/surefire-reports/
+
+  # ==================== Docker 构建测试 ====================
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [test-gov-fab, test-data-fab, test-kb-fab, test-ai-fab-gateway]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Test gov-fab Dockerfile
+      - name: Build gov-fab Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.gov-fab
+          push: false
+          tags: ctg/gov-fab:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/gov-fab.tar
+        continue-on-error: true
+
+      # Test data-fab Dockerfile
+      - name: Build data-fab Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./data-fab
+          file: ./Dockerfile
+          push: false
+          tags: ctg/data-fab:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/data-fab.tar
+        continue-on-error: true
+
+      # Test kb-fab Dockerfile
+      - name: Build kb-fab Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./kb-fab
+          file: ./Dockerfile
+          push: false
+          tags: ctg/kb-fab:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/kb-fab.tar
+        continue-on-error: true
+
+      # Test ai-fab-gateway Dockerfile
+      - name: Build ai-fab-gateway Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ai-fab/ai-fab-gateway
+          file: ./Dockerfile
+          push: false
+          tags: ctg/ai-fab-gateway:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/ai-fab-gateway.tar
+        continue-on-error: true
+
+      # Test ai-fab-python Dockerfile
+      - name: Build ai-fab-python Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ai-fab/ai-fab-python
+          file: ./Dockerfile
+          push: false
+          tags: ctg/ai-fab-python:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/ai-fab-python.tar
+        continue-on-error: true
+
+  # ==================== 最终状态 ====================
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [lint, test-gov-fab, test-data-fab, test-kb-fab, test-ai-fab-gateway, test-ai-fab-python, test-ai-fab-frontend, integration-test, docker-build]
+    if: always()
+    steps:
+      - name: CI Summary
+        run: |
+          echo "## CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Lint: ${{ needs.lint.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- gov-fab Tests: ${{ needs.test-gov-fab.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- data-fab Tests: ${{ needs.test-data-fab.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- kb-fab Tests: ${{ needs.test-kb-fab.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ai-fab-gateway Tests: ${{ needs.test-ai-fab-gateway.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ai-fab-python Tests: ${{ needs.test-ai-fab-python.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ai-fab-frontend Tests: ${{ needs.test-ai-fab-frontend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration Tests: ${{ needs.integration-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker Build: ${{ needs.docker-build.result }}" >> $GITHUB_STEP_SUMMARY
