@@ -1,0 +1,126 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: ai-fab-gateway
+  datasource:
+    driver-class-name: dm.jdbc.driver.DmDriver
+    url: jdbc:dm://localhost:5236/AI_FAB
+    username: ${DB_USERNAME:?must be set}
+    password: ${DB_PASSWORD:?must be set}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 30000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 5000ms
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    com.ctg.aiFab: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:your-secret-key-change-in-production}
+  expiration: 86400000 # 24小时
+
+# 限流配置
+rate-limit:
+  default: 100 # 默认每秒100次
+  burst: 200 # 突发流量200次
+
+# Resilience4j 熔断配置
+resilience4j:
+  circuitbreaker:
+    instances:
+      aiPlatform:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+  retry:
+    instances:
+      aiPlatform:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+  timelimiter:
+    instances:
+      aiPlatform:
+        timeoutDuration: 30s
+
+# Spring Cloud Gateway路由配置
+spring:
+  cloud:
+    gateway:
+      routes:
+        # 文档处理服务
+        - id: document-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/document/**
+        # 图像处理服务
+        - id: image-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/image/**
+        # 音视频处理服务
+        - id: media-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/media/**
+        # 故障诊断服务
+        - id: diagnosis-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/diagnosis/**
+        # 决策分析服务
+        - id: decision-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/decision/**
+        # 招投标辅助服务
+        - id: bid-service
+          uri: http://localhost:8000
+          predicates:
+            - Path=/api/v1/bid/**
