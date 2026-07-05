@@ -11,10 +11,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -50,17 +47,29 @@ public class JwtTokenProvider {
      * 生成访问令牌
      */
     public String generateToken(String username, List<String> roles) {
+        return generateToken(username, null, roles);
+    }
+
+    /**
+     * 生成访问令牌 (带userId)
+     */
+    public String generateToken(String username, Long userId, List<String> roles) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpiration);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(username)
                 .claim("roles", roles)
                 .claim("jti", UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(secretKey)
-                .compact();
+                .signWith(secretKey);
+
+        if (userId != null) {
+            builder.claim("userId", userId);
+        }
+
+        return builder.compact();
     }
 
     /**
@@ -84,12 +93,20 @@ public class JwtTokenProvider {
      * 从令牌中获取用户名
      */
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        Claims claims = getClaims(token);
         return claims.getSubject();
+    }
+
+    /**
+     * 从令牌中获取用户ID
+     */
+    public Long getUserIdFromToken(String token) {
+        Claims claims = getClaims(token);
+        Object userId = claims.get("userId");
+        if (userId instanceof Number) {
+            return ((Number) userId).longValue();
+        }
+        return null;
     }
 
     /**
@@ -97,11 +114,7 @@ public class JwtTokenProvider {
      */
     @SuppressWarnings("unchecked")
     public List<String> getRolesFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        Claims claims = getClaims(token);
         return claims.get("roles", List.class);
     }
 
@@ -110,10 +123,7 @@ public class JwtTokenProvider {
      */
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
+            getClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
             log.warn("JWT令牌已过期: {}", e.getMessage());
@@ -126,16 +136,29 @@ public class JwtTokenProvider {
     }
 
     /**
+     * 获取令牌 Claims
+     */
+    private Claims getClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    /**
      * 从令牌获取认证信息
      */
     public Authentication getAuthentication(String token) {
         String username = getUsernameFromToken(token);
+        Long userId = getUserIdFromToken(token);
         List<String> roles = getRolesFromToken(token);
 
         List<SimpleGrantedAuthority> authorities = roles.stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                 .collect(Collectors.toList());
 
+        // 将 userId 存入 details
         User principal = new User(username, "", authorities);
         return new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                 principal, token, authorities);

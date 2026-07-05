@@ -1,5 +1,6 @@
 package com.ctg.dataFab.etl.controller;
 
+import com.ctg.dataFab.access.annotation.AuditDataAccess;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.dto.PageResponse;
@@ -29,6 +30,7 @@ public class EtlRuleController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "WRITE", resourceType = "ETL_RULE")
     @Operation(summary = "创建清洗规则")
     public ApiResponse<Long> createRule(@RequestBody EtlRule rule) {
         Long id = etlRuleService.createRule(rule);
@@ -37,6 +39,7 @@ public class EtlRuleController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
+    @AuditDataAccess(action = "READ", resourceType = "ETL_RULE")
     @Operation(summary = "获取清洗规则详情")
     public ApiResponse<EtlRule> getRule(@PathVariable Long id) {
         EtlRule rule = etlRuleService.getRuleById(id);
@@ -69,6 +72,7 @@ public class EtlRuleController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "WRITE", resourceType = "ETL_RULE")
     @Operation(summary = "更新清洗规则")
     public ApiResponse<Void> updateRule(@PathVariable Long id, @RequestBody EtlRule rule) {
         rule.setId(id);
@@ -78,6 +82,7 @@ public class EtlRuleController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "DELETE", resourceType = "ETL_RULE")
     @Operation(summary = "删除清洗规则")
     public ApiResponse<Void> deleteRule(@PathVariable Long id) {
         etlRuleService.deleteRule(id);
@@ -86,6 +91,7 @@ public class EtlRuleController {
 
     @PutMapping("/{id}/toggle")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "WRITE", resourceType = "ETL_RULE")
     @Operation(summary = "启用/禁用清洗规则")
     public ApiResponse<Void> toggleRuleEnabled(
             @PathVariable Long id,

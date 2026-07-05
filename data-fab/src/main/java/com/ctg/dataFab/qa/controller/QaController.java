@@ -1,5 +1,6 @@
 package com.ctg.dataFab.qa.controller;
 
+import com.ctg.dataFab.access.annotation.AuditDataAccess;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.dto.PageResponse;
@@ -33,6 +34,7 @@ public class QaController {
 
     @PostMapping("/evaluate")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "QA_TASK")
     @Operation(summary = "执行质量评估")
     public ApiResponse<EvaluateResponse> evaluate(@Valid @RequestBody EvaluateRequest request) {
         EvaluateResponse response = qaService.evaluate(request);
@@ -41,6 +43,7 @@ public class QaController {
 
     @GetMapping("/tasks/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
+    @AuditDataAccess(action = "READ", resourceType = "QA_TASK")
     @Operation(summary = "获取评估任务详情")
     public ApiResponse<QaTask> getTask(@PathVariable Long id) {
         QaTask task = qaService.getTaskById(id);
@@ -73,6 +76,7 @@ public class QaController {
 
     @PostMapping("/tasks/{id}/manual-review")
     @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "QA_TASK")
     @Operation(summary = "人工复审")
     public ApiResponse<Void> manualReview(
             @PathVariable Long id,
@@ -85,6 +89,7 @@ public class QaController {
 
     @PostMapping("/tasks/{id}/expert-review")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "WRITE", resourceType = "QA_TASK")
     @Operation(summary = "专家终审")
     public ApiResponse<Void> expertReview(
             @PathVariable Long id,
@@ -97,6 +102,7 @@ public class QaController {
 
     @PostMapping("/tasks/{id}/publish")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "WRITE", resourceType = "QA_TASK")
     @Operation(summary = "发布数据集")
     public ApiResponse<Void> publishDataset(@PathVariable Long id) {
         qaService.publishDataset(id);

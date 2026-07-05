@@ -1,5 +1,6 @@
 package com.ctg.dataFab.etl.controller;
 
+import com.ctg.dataFab.access.annotation.AuditDataAccess;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.dto.PageResponse;
@@ -29,6 +30,7 @@ public class EtlTaskController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "ETL_TASK")
     @Operation(summary = "创建清洗任务")
     public ApiResponse<Long> createTask(
             @RequestParam Long datasetId,
@@ -39,6 +41,7 @@ public class EtlTaskController {
 
     @PostMapping("/{id}/execute")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "ETL_TASK")
     @Operation(summary = "执行清洗任务")
     public ApiResponse<Void> executeTask(@PathVariable Long id) {
         etlTaskService.executeTask(id);
@@ -47,6 +50,7 @@ public class EtlTaskController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
+    @AuditDataAccess(action = "READ", resourceType = "ETL_TASK")
     @Operation(summary = "获取清洗任务详情")
     public ApiResponse<EtlTask> getTask(@PathVariable Long id) {
         EtlTask task = etlTaskService.getTaskById(id);
@@ -79,6 +83,7 @@ public class EtlTaskController {
 
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "ETL_TASK")
     @Operation(summary = "取消清洗任务")
     public ApiResponse<Void> cancelTask(@PathVariable Long id) {
         etlTaskService.cancelTask(id);

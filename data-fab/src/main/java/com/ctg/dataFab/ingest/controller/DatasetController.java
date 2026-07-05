@@ -1,5 +1,6 @@
 package com.ctg.dataFab.ingest.controller;
 
+import com.ctg.dataFab.access.annotation.AuditDataAccess;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.dto.PageResponse;
@@ -31,6 +32,7 @@ public class DatasetController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "DATASET")
     @Operation(summary = "创建数据集")
     public ApiResponse<Long> createDataset(@Valid @RequestBody DatasetCreateRequest request) {
         Long id = datasetService.createDataset(request);
@@ -39,6 +41,7 @@ public class DatasetController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
+    @AuditDataAccess(action = "READ", resourceType = "DATASET")
     @Operation(summary = "获取数据集详情")
     public ApiResponse<Dataset> getDataset(@PathVariable Long id) {
         Dataset dataset = datasetService.getDatasetById(id);
@@ -72,6 +75,7 @@ public class DatasetController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "DELETE", resourceType = "DATASET")
     @Operation(summary = "删除数据集")
     public ApiResponse<Void> deleteDataset(@PathVariable Long id) {
         datasetService.deleteDataset(id);

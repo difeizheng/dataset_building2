@@ -1,5 +1,6 @@
 package com.ctg.dataFab.ingest.controller;
 
+import com.ctg.dataFab.access.annotation.AuditDataAccess;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.dto.PageResponse;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -29,6 +31,8 @@ public class DataSampleController {
     private final DataSampleService dataSampleService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "DATA_SAMPLE")
     @Operation(summary = "创建数据样本")
     public ApiResponse<Long> createDataSample(@Valid @RequestBody DataSampleCreateRequest request) {
         Long id = dataSampleService.createDataSample(request);
@@ -36,6 +40,8 @@ public class DataSampleController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
+    @AuditDataAccess(action = "READ", resourceType = "DATA_SAMPLE")
     @Operation(summary = "获取数据样本详情")
     public ApiResponse<DataSample> getDataSample(@PathVariable Long id) {
         DataSample dataSample = dataSampleService.getDataSampleById(id);
@@ -68,6 +74,8 @@ public class DataSampleController {
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "DATA_SAMPLE")
     @Operation(summary = "更新数据样本状态")
     public ApiResponse<Void> updateDataSampleStatus(
             @PathVariable Long id,
@@ -77,6 +85,8 @@ public class DataSampleController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "DELETE", resourceType = "DATA_SAMPLE")
     @Operation(summary = "删除数据样本")
     public ApiResponse<Void> deleteDataSample(@PathVariable Long id) {
         dataSampleService.deleteDataSample(id);

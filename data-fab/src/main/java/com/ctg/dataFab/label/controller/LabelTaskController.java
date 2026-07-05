@@ -1,5 +1,6 @@
 package com.ctg.dataFab.label.controller;
 
+import com.ctg.dataFab.access.annotation.AuditDataAccess;
 import com.ctg.dataFab.common.dto.ApiResponse;
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.dto.PageResponse;
@@ -33,6 +34,7 @@ public class LabelTaskController {
 
     @PostMapping("/tasks")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "LABEL_TASK")
     @Operation(summary = "创建标注任务")
     public ApiResponse<Long> createTask(@Valid @RequestBody CreateLabelTaskRequest request) {
         Long id = labelTaskService.createTask(request);
@@ -41,6 +43,7 @@ public class LabelTaskController {
 
     @GetMapping("/tasks/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')")
+    @AuditDataAccess(action = "READ", resourceType = "LABEL_TASK")
     @Operation(summary = "获取标注任务详情")
     public ApiResponse<LabelTask> getTask(@PathVariable Long id) {
         LabelTask task = labelTaskService.getTaskById(id);
@@ -73,6 +76,7 @@ public class LabelTaskController {
 
     @PostMapping("/submit")
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
+    @AuditDataAccess(action = "WRITE", resourceType = "LABEL_TASK")
     @Operation(summary = "提交标注")
     public ApiResponse<Void> submitLabel(@Valid @RequestBody SubmitLabelRequest request) {
         labelTaskService.submitLabel(request);
@@ -81,6 +85,7 @@ public class LabelTaskController {
 
     @PostMapping("/arbitrate")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "WRITE", resourceType = "LABEL_TASK")
     @Operation(summary = "触发仲裁")
     public ApiResponse<Void> triggerArbitration(@RequestParam Long taskId) {
         labelTaskService.triggerArbitration(taskId);
@@ -89,6 +94,7 @@ public class LabelTaskController {
 
     @GetMapping("/tasks/{id}/iaa")
     @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
+    @AuditDataAccess(action = "READ", resourceType = "LABEL_TASK")
     @Operation(summary = "计算IAA得分")
     public ApiResponse<Double> calculateIaa(@PathVariable Long id) {
         Double kappa = labelTaskService.calculateIaaScore(id);
@@ -97,6 +103,7 @@ public class LabelTaskController {
 
     @PostMapping("/tasks/{id}/relabel")
     @PreAuthorize("hasRole('ADMIN')")
+    @AuditDataAccess(action = "WRITE", resourceType = "LABEL_TASK")
     @Operation(summary = "触发重标")
     public ApiResponse<Void> triggerRelabel(@PathVariable Long id) {
         labelTaskService.triggerRelabel(id);
