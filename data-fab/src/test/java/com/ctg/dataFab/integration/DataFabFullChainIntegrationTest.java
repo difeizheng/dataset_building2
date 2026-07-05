@@ -15,8 +15,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,6 +39,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @WithMockUser(username = "test-user", roles = {"ADMIN", "OPERATOR"})
+@Sql(scripts = {"classpath:schema.sql", "classpath:import.sql"})
+@Transactional
 @DisplayName("数据集建设全链路集成测试")
 public class DataFabFullChainIntegrationTest {
 
@@ -171,7 +175,7 @@ public class DataFabFullChainIntegrationTest {
     @Test
     @DisplayName("标注一致性计算测试")
     public void testLabelConsistencyCalculation() throws Exception {
-        // 使用data.sql中已初始化的标注任务（ID=1，已有标注记录和kappa分数）
+        // 使用import.sql中已初始化的标注任务（ID=1，已有标注记录和kappa分数）
         // 计算IAA得分
         mockMvc.perform(get("/api/v1/label/tasks/1/iaa"))
                 .andExpect(status().isOk())

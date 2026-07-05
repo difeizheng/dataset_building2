@@ -36,18 +36,18 @@ VALUES (1, 1, '文本分类标注', 1, 'classification', '{"labels":["正面","�
 INSERT INTO t_label_task (id, dataset_id, task_name, modality, label_type, label_schema, double_blind, annotator_count, annotator_ids, status, total_samples, labeled_count, kappa_score, create_by, create_time, update_time, deleted)
 VALUES (2, 2, '图像目标检测', 2, 'detection', '{"labels":["猫","狗","鸟"]}', 1, 2, '[1,2]', 2, 50, 30, 0.8200, 'test-user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
 
--- 测试标注记录
-INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotation, duration_seconds, create_time, update_time, deleted)
-VALUES (1, 1, 1, 1, '{"label":"正面"}', 30, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
+-- 测试标注记录 (status=1 表示已提交, annotations 为JSON数组格式)
+INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotations, status, duration_seconds, create_time, update_time, deleted)
+VALUES (1, 1, 1, 1, '["正面"]', 1, 30, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
 
-INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotation, duration_seconds, create_time, update_time, deleted)
-VALUES (2, 1, 1, 2, '{"label":"正面"}', 25, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
+INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotations, status, duration_seconds, create_time, update_time, deleted)
+VALUES (2, 1, 1, 2, '["正面"]', 1, 25, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
 
-INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotation, duration_seconds, create_time, update_time, deleted)
-VALUES (3, 1, 2, 1, '{"label":"负面"}', 28, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
+INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotations, status, duration_seconds, create_time, update_time, deleted)
+VALUES (3, 1, 2, 1, '["负面"]', 1, 28, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
 
-INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotation, duration_seconds, create_time, update_time, deleted)
-VALUES (4, 1, 2, 2, '{"label":"中性"}', 32, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
+INSERT INTO t_label_record (id, task_id, sample_id, annotator_id, annotations, status, duration_seconds, create_time, update_time, deleted)
+VALUES (4, 1, 2, 2, '["中性"]', 1, 32, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
 
 -- 测试质量评估任务
 INSERT INTO t_qa_task (id, dataset_id, modality, batch, status, metrics, passed, gates, review_stage, create_by, create_time, update_time, deleted)
