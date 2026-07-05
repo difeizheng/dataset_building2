@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EnvironmentSm4KeyProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.crypto</a> &gt; <span class="el_source">EnvironmentSm4KeyProvider.java</span></div><h1>EnvironmentSm4KeyProvider.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.crypto;
+
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.util.Base64;
+
+/**
+ * 基于环境变量的 SM4 密钥提供者
+ * 密钥必须通过环境变量 SM4_ENCRYPTION_KEY 注入，禁止硬编码
+ *
+ * @author Security Officer
+ * @since 2026-07-05
+ */
+<span class="fc" id="L17">@Slf4j</span>
+@Component
+<span class="fc" id="L19">public class EnvironmentSm4KeyProvider implements Sm4KeyProvider {</span>
+
+    private static final int SM4_KEY_LENGTH = 16;
+
+    @Value(&quot;${sm4.encryption.key:}&quot;)
+    private String encryptionKey;
+
+    /**
+     * 启动时 fail-fast 校验：密钥必须已配置且格式正确，否则启动失败
+     */
+    @PostConstruct
+    public void validateKeyConfiguration() {
+<span class="pc bpc" id="L31" title="1 of 4 branches missed.">        if (encryptionKey == null || encryptionKey.isBlank()) {</span>
+<span class="fc" id="L32">            throw new Sm4EncryptionException(</span>
+                &quot;SM4 encryption key is not configured. &quot; +
+                &quot;Please set the SM4_ENCRYPTION_KEY environment variable with a Base64-encoded 16-byte key.&quot;
+            );
+        }
+
+        try {
+<span class="fc" id="L39">            byte[] keyBytes = Base64.getDecoder().decode(encryptionKey);</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">            if (keyBytes.length != SM4_KEY_LENGTH) {</span>
+<span class="fc" id="L41">                throw new Sm4EncryptionException(</span>
+                    &quot;SM4 key must be exactly 16 bytes (128 bits), but got &quot; + keyBytes.length + &quot; bytes&quot;
+                );
+            }
+<span class="fc" id="L45">        } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L46">            throw new Sm4EncryptionException(&quot;SM4 encryption key is not valid Base64 format&quot;, e);</span>
+<span class="fc" id="L47">        }</span>
+
+<span class="fc" id="L49">        log.info(&quot;SM4 encryption key configured successfully (16 bytes)&quot;);</span>
+<span class="fc" id="L50">    }</span>
+
+    @Override
+    public byte[] getKey() {
+        // 启动时已校验，此处直接解码（已缓存逻辑由 Spring 容器管理）
+<span class="fc" id="L55">        return Base64.getDecoder().decode(encryptionKey);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

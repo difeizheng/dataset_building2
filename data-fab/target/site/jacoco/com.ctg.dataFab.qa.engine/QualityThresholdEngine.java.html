@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QualityThresholdEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.qa.engine</a> &gt; <span class="el_source">QualityThresholdEngine.java</span></div><h1>QualityThresholdEngine.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.qa.engine;
+
+import com.ctg.dataFab.common.enums.DataModality;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 质量阈值引擎
+ * 实现 M2 四模态质量阈值检测
+ *
+ * 文本：完整率&gt;99.5%、语法正确率&gt;98%、重复率&lt;1%、毒性&lt;0.1%、领域CV&lt;0.3
+ * 图像：IoU&gt;0.85、分类&gt;95%、pHash重复&lt;2%、违规&lt;0.05%、最短边&gt;512px
+ * 音频：CER&lt;3%、SNR&gt;20dB、总时长&gt;1000h、说话人均衡、涉密识别0漏放
+ * 视频：分辨率&gt;720p、帧率&gt;24fps、时间偏差&lt;0.5s、类别&gt;100、涉黄/政0漏放
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc" id="L23">@Slf4j</span>
+<span class="nc" id="L24">public class QualityThresholdEngine {</span>
+
+    /**
+     * 质量评估结果
+     */
+<span class="nc bnc" id="L29" title="All 26 branches missed.">    @Data</span>
+    public static class QualityResult {
+<span class="nc" id="L31">        private boolean passed;</span>
+<span class="nc" id="L32">        private Map&lt;String, Object&gt; metrics;</span>
+<span class="nc" id="L33">        private List&lt;GateCheck&gt; gates;</span>
+
+<span class="nc" id="L35">        public QualityResult() {</span>
+<span class="nc" id="L36">            this.gates = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L37">        }</span>
+    }
+
+    /**
+     * 门禁检查项
+     */
+<span class="nc bnc" id="L43" title="All 40 branches missed.">    @Data</span>
+    public static class GateCheck {
+<span class="nc" id="L45">        private String name;</span>
+<span class="nc" id="L46">        private double threshold;</span>
+<span class="nc" id="L47">        private Double actual; // null表示缺失</span>
+<span class="nc" id="L48">        private boolean passed;</span>
+<span class="nc" id="L49">        private String operator; // &gt;, &lt;, &gt;=, &lt;=</span>
+<span class="nc" id="L50">        private boolean missing; // 指标是否缺失</span>
+
+<span class="nc" id="L52">        public GateCheck(String name, double threshold, Double actual, String operator) {</span>
+<span class="nc" id="L53">            this.name = name;</span>
+<span class="nc" id="L54">            this.threshold = threshold;</span>
+<span class="nc" id="L55">            this.actual = actual;</span>
+<span class="nc" id="L56">            this.operator = operator;</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">            this.missing = (actual == null);</span>
+
+            // H2修复: 缺失指标判定为FAIL
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            if (actual == null) {</span>
+<span class="nc" id="L61">                this.passed = false;</span>
+<span class="nc" id="L62">                return;</span>
+            }
+
+<span class="nc bnc" id="L65" title="All 5 branches missed.">            switch (operator) {</span>
+                case &quot;&gt;&quot;:
+<span class="nc bnc" id="L67" title="All 2 branches missed.">                    this.passed = actual &gt; threshold;</span>
+<span class="nc" id="L68">                    break;</span>
+                case &quot;&gt;=&quot;:
+<span class="nc bnc" id="L70" title="All 2 branches missed.">                    this.passed = actual &gt;= threshold;</span>
+<span class="nc" id="L71">                    break;</span>
+                case &quot;&lt;&quot;:
+<span class="nc bnc" id="L73" title="All 2 branches missed.">                    this.passed = actual &lt; threshold;</span>
+<span class="nc" id="L74">                    break;</span>
+                case &quot;&lt;=&quot;:
+<span class="nc bnc" id="L76" title="All 2 branches missed.">                    this.passed = actual &lt;= threshold;</span>
+<span class="nc" id="L77">                    break;</span>
+                default:
+<span class="nc" id="L79">                    this.passed = false;</span>
+            }
+<span class="nc" id="L81">        }</span>
+    }
+
+    /**
+     * 评估数据集质量
+     *
+     * @param modality 数据模态
+     * @param metrics 实际指标
+     * @return 评估结果
+     */
+    public static QualityResult evaluate(DataModality modality, Map&lt;String, Object&gt; metrics) {
+<span class="nc" id="L92">        QualityResult result = new QualityResult();</span>
+<span class="nc" id="L93">        result.setMetrics(metrics);</span>
+
+<span class="nc" id="L95">        List&lt;GateCheck&gt; gates = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L97" title="All 5 branches missed.">        switch (modality) {</span>
+            case TEXT:
+<span class="nc" id="L99">                gates.addAll(evaluateText(metrics));</span>
+<span class="nc" id="L100">                break;</span>
+            case IMAGE:
+<span class="nc" id="L102">                gates.addAll(evaluateImage(metrics));</span>
+<span class="nc" id="L103">                break;</span>
+            case AUDIO:
+<span class="nc" id="L105">                gates.addAll(evaluateAudio(metrics));</span>
+<span class="nc" id="L106">                break;</span>
+            case VIDEO:
+<span class="nc" id="L108">                gates.addAll(evaluateVideo(metrics));</span>
+<span class="nc" id="L109">                break;</span>
+            default:
+<span class="nc" id="L111">                throw new IllegalArgumentException(&quot;不支持的数据模态: &quot; + modality);</span>
+        }
+
+<span class="nc" id="L114">        result.setGates(gates);</span>
+<span class="nc" id="L115">        result.setPassed(gates.stream().allMatch(GateCheck::isPassed));</span>
+
+<span class="nc" id="L117">        log.info(&quot;质量评估完成: 模态={}, 通过={}, 门禁数={}&quot;,</span>
+<span class="nc" id="L118">                modality, result.isPassed(), gates.size());</span>
+
+<span class="nc" id="L120">        return result;</span>
+    }
+
+    /**
+     * 文本质量评估
+     */
+    private static List&lt;GateCheck&gt; evaluateText(Map&lt;String, Object&gt; metrics) {
+<span class="nc" id="L127">        List&lt;GateCheck&gt; gates = new ArrayList&lt;&gt;();</span>
+
+        // 完整率 &gt; 99.5%
+<span class="nc" id="L130">        gates.add(new GateCheck(&quot;完整率&quot;, 99.5,</span>
+<span class="nc" id="L131">                getDoubleOrNull(metrics, &quot;completeness_rate&quot;), &quot;&gt;&quot;));</span>
+
+        // 语法正确率 &gt; 98%
+<span class="nc" id="L134">        gates.add(new GateCheck(&quot;语法正确率&quot;, 98.0,</span>
+<span class="nc" id="L135">                getDoubleOrNull(metrics, &quot;grammar_accuracy&quot;), &quot;&gt;&quot;));</span>
+
+        // 重复率 &lt; 1%
+<span class="nc" id="L138">        gates.add(new GateCheck(&quot;重复率&quot;, 1.0,</span>
+<span class="nc" id="L139">                getDoubleOrNull(metrics, &quot;duplicate_rate&quot;), &quot;&lt;&quot;));</span>
+
+        // 毒性 &lt; 0.1%
+<span class="nc" id="L142">        gates.add(new GateCheck(&quot;毒性&quot;, 0.1,</span>
+<span class="nc" id="L143">                getDoubleOrNull(metrics, &quot;toxicity_rate&quot;), &quot;&lt;&quot;));</span>
+
+        // 领域CV &lt; 0.3
+<span class="nc" id="L146">        gates.add(new GateCheck(&quot;领域CV&quot;, 0.3,</span>
+<span class="nc" id="L147">                getDoubleOrNull(metrics, &quot;domain_cv&quot;), &quot;&lt;&quot;));</span>
+
+<span class="nc" id="L149">        return gates;</span>
+    }
+
+    /**
+     * 图像质量评估
+     */
+    private static List&lt;GateCheck&gt; evaluateImage(Map&lt;String, Object&gt; metrics) {
+<span class="nc" id="L156">        List&lt;GateCheck&gt; gates = new ArrayList&lt;&gt;();</span>
+
+        // IoU &gt; 0.85
+<span class="nc" id="L159">        gates.add(new GateCheck(&quot;IoU&quot;, 0.85,</span>
+<span class="nc" id="L160">                getDoubleOrNull(metrics, &quot;iou&quot;), &quot;&gt;&quot;));</span>
+
+        // 分类准确率 &gt; 95%
+<span class="nc" id="L163">        gates.add(new GateCheck(&quot;分类准确率&quot;, 95.0,</span>
+<span class="nc" id="L164">                getDoubleOrNull(metrics, &quot;classification_accuracy&quot;), &quot;&gt;&quot;));</span>
+
+        // pHash重复 &lt; 2%
+<span class="nc" id="L167">        gates.add(new GateCheck(&quot;pHash重复&quot;, 2.0,</span>
+<span class="nc" id="L168">                getDoubleOrNull(metrics, &quot;phash_duplicate&quot;), &quot;&lt;&quot;));</span>
+
+        // 违规 &lt; 0.05%
+<span class="nc" id="L171">        gates.add(new GateCheck(&quot;违规&quot;, 0.05,</span>
+<span class="nc" id="L172">                getDoubleOrNull(metrics, &quot;violation_rate&quot;), &quot;&lt;&quot;));</span>
+
+        // 最短边 &gt; 512px
+<span class="nc" id="L175">        gates.add(new GateCheck(&quot;最短边&quot;, 512.0,</span>
+<span class="nc" id="L176">                getDoubleOrNull(metrics, &quot;min_edge_length&quot;), &quot;&gt;&quot;));</span>
+
+<span class="nc" id="L178">        return gates;</span>
+    }
+
+    /**
+     * 音频质量评估
+     */
+    private static List&lt;GateCheck&gt; evaluateAudio(Map&lt;String, Object&gt; metrics) {
+<span class="nc" id="L185">        List&lt;GateCheck&gt; gates = new ArrayList&lt;&gt;();</span>
+
+        // CER &lt; 3%
+<span class="nc" id="L188">        gates.add(new GateCheck(&quot;CER&quot;, 3.0,</span>
+<span class="nc" id="L189">                getDoubleOrNull(metrics, &quot;cer&quot;), &quot;&lt;&quot;));</span>
+
+        // SNR &gt; 20dB
+<span class="nc" id="L192">        gates.add(new GateCheck(&quot;SNR&quot;, 20.0,</span>
+<span class="nc" id="L193">                getDoubleOrNull(metrics, &quot;snr&quot;), &quot;&gt;&quot;));</span>
+
+        // 总时长 &gt; 1000h
+<span class="nc" id="L196">        gates.add(new GateCheck(&quot;总时长&quot;, 1000.0,</span>
+<span class="nc" id="L197">                getDoubleOrNull(metrics, &quot;total_hours&quot;), &quot;&gt;&quot;));</span>
+
+        // 说话人均衡度 &gt; 80%
+<span class="nc" id="L200">        gates.add(new GateCheck(&quot;说话人均衡度&quot;, 80.0,</span>
+<span class="nc" id="L201">                getDoubleOrNull(metrics, &quot;speaker_balance&quot;), &quot;&gt;&quot;));</span>
+
+        // 涉密识别 = 0
+<span class="nc" id="L204">        gates.add(new GateCheck(&quot;涉密识别&quot;, 0.0,</span>
+<span class="nc" id="L205">                getDoubleOrNull(metrics, &quot;secret_leak&quot;), &quot;&lt;=&quot;));</span>
+
+<span class="nc" id="L207">        return gates;</span>
+    }
+
+    /**
+     * 视频质量评估
+     */
+    private static List&lt;GateCheck&gt; evaluateVideo(Map&lt;String, Object&gt; metrics) {
+<span class="nc" id="L214">        List&lt;GateCheck&gt; gates = new ArrayList&lt;&gt;();</span>
+
+        // 分辨率 &gt; 720p (高度)
+<span class="nc" id="L217">        gates.add(new GateCheck(&quot;分辨率&quot;, 720.0,</span>
+<span class="nc" id="L218">                getDoubleOrNull(metrics, &quot;resolution_height&quot;), &quot;&gt;&quot;));</span>
+
+        // 帧率 &gt; 24fps
+<span class="nc" id="L221">        gates.add(new GateCheck(&quot;帧率&quot;, 24.0,</span>
+<span class="nc" id="L222">                getDoubleOrNull(metrics, &quot;frame_rate&quot;), &quot;&gt;&quot;));</span>
+
+        // 时间偏差 &lt; 0.5s
+<span class="nc" id="L225">        gates.add(new GateCheck(&quot;时间偏差&quot;, 0.5,</span>
+<span class="nc" id="L226">                getDoubleOrNull(metrics, &quot;time_deviation&quot;), &quot;&lt;&quot;));</span>
+
+        // 类别数 &gt; 100
+<span class="nc" id="L229">        gates.add(new GateCheck(&quot;类别数&quot;, 100.0,</span>
+<span class="nc" id="L230">                getDoubleOrNull(metrics, &quot;category_count&quot;), &quot;&gt;&quot;));</span>
+
+        // 涉黄/政 = 0
+<span class="nc" id="L233">        gates.add(new GateCheck(&quot;涉黄/政&quot;, 0.0,</span>
+<span class="nc" id="L234">                getDoubleOrNull(metrics, &quot;inappropriate_content&quot;), &quot;&lt;=&quot;));</span>
+
+<span class="nc" id="L236">        return gates;</span>
+    }
+
+    /**
+     * 从Map中安全获取double值，缺失返回null
+     */
+    private static Double getDoubleOrNull(Map&lt;String, Object&gt; map, String key) {
+<span class="nc" id="L243">        Object value = map.get(key);</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L245">            return null;</span>
+        }
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if (value instanceof Number) {</span>
+<span class="nc" id="L248">            return ((Number) value).doubleValue();</span>
+        }
+        try {
+<span class="nc" id="L251">            return Double.parseDouble(value.toString());</span>
+<span class="nc" id="L252">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L253">            return null;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.common.config</a> &gt; <span class="el_source">SecurityConfig.java</span></div><h1>SecurityConfig.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.common.config;
+
+import com.ctg.dataFab.common.security.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+
+/**
+ * Spring Security 配置类
+ * 实现认证、授权、CSRF、CORS 安全配置
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+<span class="fc" id="L32">@RequiredArgsConstructor</span>
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    /**
+     * 安全过滤器链
+     */
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+<span class="fc" id="L42">        http</span>
+                // 禁用 CSRF (使用 JWT 时不需要)
+<span class="fc" id="L44">                .csrf(AbstractHttpConfigurer::disable)</span>
+
+                // 配置 CORS
+<span class="fc" id="L47">                .cors(cors -&gt; cors.configurationSource(corsConfigurationSource()))</span>
+
+                // 配置会话管理 (无状态)
+<span class="fc" id="L50">                .sessionManagement(session -&gt; session</span>
+<span class="fc" id="L51">                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
+
+                // 配置授权规则
+<span class="fc" id="L54">                .authorizeHttpRequests(auth -&gt; auth</span>
+                        // 公开接口
+<span class="fc" id="L56">                        .requestMatchers(&quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
+<span class="fc" id="L57">                        .requestMatchers(&quot;/actuator/**&quot;).permitAll()</span>
+<span class="fc" id="L58">                        .requestMatchers(&quot;/health&quot;, &quot;/info&quot;).permitAll()</span>
+
+                        // 数据集管理接口需要认证
+<span class="fc" id="L61">                        .requestMatchers(&quot;/api/v1/data/**&quot;).authenticated()</span>
+
+                        // 标注管理接口需要认证
+<span class="fc" id="L64">                        .requestMatchers(&quot;/api/v1/label/**&quot;).authenticated()</span>
+
+                        // 质量评估接口需要认证
+<span class="fc" id="L67">                        .requestMatchers(&quot;/api/v1/qa/**&quot;).authenticated()</span>
+
+                        // ETL 接口需要认证
+<span class="fc" id="L70">                        .requestMatchers(&quot;/api/v1/etl/**&quot;).authenticated()</span>
+
+                        // 交付接口需要认证
+<span class="fc" id="L73">                        .requestMatchers(&quot;/api/v1/delivery/**&quot;).authenticated()</span>
+
+                        // 其他所有请求需要认证
+<span class="fc" id="L76">                        .anyRequest().authenticated()</span>
+                )
+
+                // 添加 JWT 过滤器
+<span class="fc" id="L80">                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)</span>
+
+                // 配置异常处理
+<span class="fc" id="L83">                .exceptionHandling(exception -&gt; exception</span>
+<span class="fc" id="L84">                        .authenticationEntryPoint((request, response, authException) -&gt; {</span>
+<span class="nc" id="L85">                            response.setContentType(&quot;application/json;charset=UTF-8&quot;);</span>
+<span class="nc" id="L86">                            response.setStatus(401);</span>
+<span class="nc" id="L87">                            response.getWriter().write(&quot;{\&quot;code\&quot;:401,\&quot;message\&quot;:\&quot;未授权，请先登录\&quot;}&quot;);</span>
+<span class="nc" id="L88">                        })</span>
+<span class="fc" id="L89">                        .accessDeniedHandler((request, response, accessDeniedException) -&gt; {</span>
+<span class="nc" id="L90">                            response.setContentType(&quot;application/json;charset=UTF-8&quot;);</span>
+<span class="nc" id="L91">                            response.setStatus(403);</span>
+<span class="nc" id="L92">                            response.getWriter().write(&quot;{\&quot;code\&quot;:403,\&quot;message\&quot;:\&quot;访问被拒绝\&quot;}&quot;);</span>
+<span class="nc" id="L93">                        })</span>
+                );
+
+<span class="fc" id="L96">        return http.build();</span>
+    }
+
+    /**
+     * CORS 配置源
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+<span class="fc" id="L104">        CorsConfiguration configuration = new CorsConfiguration();</span>
+
+        // 允许的源
+<span class="fc" id="L107">        configuration.setAllowedOrigins(Arrays.asList(</span>
+                &quot;http://localhost:3000&quot;,
+                &quot;http://localhost:8080&quot;,
+                &quot;https://your-domain.com&quot;
+        ));
+
+        // 允许的方法
+<span class="fc" id="L114">        configuration.setAllowedMethods(Arrays.asList(</span>
+                &quot;GET&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;DELETE&quot;, &quot;OPTIONS&quot;, &quot;PATCH&quot;
+        ));
+
+        // 允许的头
+<span class="fc" id="L119">        configuration.setAllowedHeaders(Arrays.asList(</span>
+                &quot;Authorization&quot;,
+                &quot;Content-Type&quot;,
+                &quot;X-Requested-With&quot;,
+                &quot;Accept&quot;,
+                &quot;Origin&quot;,
+                &quot;Access-Control-Request-Method&quot;,
+                &quot;Access-Control-Request-Headers&quot;
+        ));
+
+        // 允许凭证
+<span class="fc" id="L130">        configuration.setAllowCredentials(true);</span>
+
+        // 预检请求缓存时间
+<span class="fc" id="L133">        configuration.setMaxAge(3600L);</span>
+
+        // 暴露的头
+<span class="fc" id="L136">        configuration.setExposedHeaders(Arrays.asList(</span>
+                &quot;Access-Control-Allow-Origin&quot;,
+                &quot;Access-Control-Allow-Credentials&quot;
+        ));
+
+<span class="fc" id="L141">        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();</span>
+<span class="fc" id="L142">        source.registerCorsConfiguration(&quot;/**&quot;, configuration);</span>
+<span class="fc" id="L143">        return source;</span>
+    }
+
+    /**
+     * 密码编码器
+     */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+<span class="fc" id="L151">        return new BCryptPasswordEncoder();</span>
+    }
+
+    /**
+     * JWT 认证过滤器 (示例，需要实现 JWT 工具类)
+     */
+    // @Bean
+    // public JwtAuthenticationFilter jwtAuthenticationFilter() {
+    //     return new JwtAuthenticationFilter();
+    // }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

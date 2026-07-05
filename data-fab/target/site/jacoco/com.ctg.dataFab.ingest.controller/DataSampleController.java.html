@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataSampleController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.ingest.controller</a> &gt; <span class="el_source">DataSampleController.java</span></div><h1>DataSampleController.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.ingest.controller;
+
+import com.ctg.dataFab.common.dto.ApiResponse;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.dto.PageResponse;
+import com.ctg.dataFab.ingest.dto.DataSampleCreateRequest;
+import com.ctg.dataFab.ingest.entity.DataSample;
+import com.ctg.dataFab.ingest.service.DataSampleService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 数据样本控制器
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L22">@Slf4j</span>
+@RestController
+@RequestMapping(&quot;/api/v1/data/samples&quot;)
+<span class="fc" id="L25">@RequiredArgsConstructor</span>
+@Tag(name = &quot;数据样本管理&quot;, description = &quot;数据样本的增删改查接口&quot;)
+public class DataSampleController {
+
+    private final DataSampleService dataSampleService;
+
+    @PostMapping
+    @Operation(summary = &quot;创建数据样本&quot;)
+    public ApiResponse&lt;Long&gt; createDataSample(@Valid @RequestBody DataSampleCreateRequest request) {
+<span class="nc" id="L34">        Long id = dataSampleService.createDataSample(request);</span>
+<span class="nc" id="L35">        return ApiResponse.success(id);</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    @Operation(summary = &quot;获取数据样本详情&quot;)
+    public ApiResponse&lt;DataSample&gt; getDataSample(@PathVariable Long id) {
+<span class="nc" id="L41">        DataSample dataSample = dataSampleService.getDataSampleById(id);</span>
+<span class="nc" id="L42">        return ApiResponse.success(dataSample);</span>
+    }
+
+    @GetMapping
+    @Operation(summary = &quot;分页查询数据样本&quot;)
+    public ApiResponse&lt;PageResponse&lt;DataSample&gt;&gt; listDataSamples(
+            @RequestParam(required = false) Long datasetId,
+            @RequestParam(required = false) Integer modality,
+            @RequestParam(required = false) Integer dataLevel,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = &quot;1&quot;) Integer pageNum,
+            @RequestParam(defaultValue = &quot;20&quot;) Integer pageSize) {
+
+<span class="nc" id="L55">        PageRequest pageRequest = new PageRequest();</span>
+<span class="nc" id="L56">        pageRequest.setPageNum(pageNum);</span>
+<span class="nc" id="L57">        pageRequest.setPageSize(pageSize);</span>
+
+<span class="nc" id="L59">        var page = dataSampleService.listDataSamples(datasetId, modality, dataLevel, status, pageRequest);</span>
+<span class="nc" id="L60">        PageResponse&lt;DataSample&gt; response = PageResponse.of(</span>
+<span class="nc" id="L61">                page.getRecords(),</span>
+<span class="nc" id="L62">                page.getTotal(),</span>
+<span class="nc" id="L63">                (int) page.getCurrent(),</span>
+<span class="nc" id="L64">                (int) page.getSize()</span>
+        );
+
+<span class="nc" id="L67">        return ApiResponse.success(response);</span>
+    }
+
+    @PutMapping(&quot;/{id}/status&quot;)
+    @Operation(summary = &quot;更新数据样本状态&quot;)
+    public ApiResponse&lt;Void&gt; updateDataSampleStatus(
+            @PathVariable Long id,
+            @RequestParam Integer status) {
+<span class="nc" id="L75">        dataSampleService.updateDataSampleStatus(id, status);</span>
+<span class="nc" id="L76">        return ApiResponse.success();</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    @Operation(summary = &quot;删除数据样本&quot;)
+    public ApiResponse&lt;Void&gt; deleteDataSample(@PathVariable Long id) {
+<span class="nc" id="L82">        dataSampleService.deleteDataSample(id);</span>
+<span class="nc" id="L83">        return ApiResponse.success();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

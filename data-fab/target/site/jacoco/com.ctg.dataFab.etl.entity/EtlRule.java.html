@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EtlRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.etl.entity</a> &gt; <span class="el_source">EtlRule.java</span></div><h1>EtlRule.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.etl.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+import java.time.LocalDateTime;
+
+/**
+ * 清洗规则实体
+ * 对应表：t_etl_rule
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc bnc" id="L14" title="All 110 branches missed.">@Data</span>
+@TableName(&quot;t_etl_rule&quot;)
+public class EtlRule {
+
+    @TableId(type = IdType.ASSIGN_ID)
+<span class="nc" id="L19">    private Long id;</span>
+
+    /**
+     * 规则名称
+     */
+<span class="nc" id="L24">    private String name;</span>
+
+    /**
+     * 规则描述
+     */
+<span class="nc" id="L29">    private String description;</span>
+
+    /**
+     * 数据模态：1-文本，2-图像，3-音频，4-视频
+     */
+<span class="nc" id="L34">    private Integer modality;</span>
+
+    /**
+     * 规则类型：去重/标准化/脱敏/分级等
+     */
+<span class="nc" id="L39">    private String ruleType;</span>
+
+    /**
+     * 规则配置（JSON格式）
+     */
+<span class="nc" id="L44">    private String ruleConfig;</span>
+
+    /**
+     * 优先级（数字越大优先级越高）
+     */
+<span class="nc" id="L49">    private Integer priority;</span>
+
+    /**
+     * 是否启用：0-禁用，1-启用
+     */
+<span class="nc" id="L54">    private Integer enabled;</span>
+
+    /**
+     * 创建人
+     */
+<span class="nc" id="L59">    private String createBy;</span>
+
+    /**
+     * 创建时间
+     */
+    @TableField(fill = FieldFill.INSERT)
+<span class="nc" id="L65">    private LocalDateTime createTime;</span>
+
+    /**
+     * 更新人
+     */
+<span class="nc" id="L70">    private String updateBy;</span>
+
+    /**
+     * 更新时间
+     */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+<span class="nc" id="L76">    private LocalDateTime updateTime;</span>
+
+    /**
+     * 逻辑删除
+     */
+    @TableLogic
+<span class="nc" id="L82">    private Integer deleted;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

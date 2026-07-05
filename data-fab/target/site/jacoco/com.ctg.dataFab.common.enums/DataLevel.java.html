@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataLevel.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.common.enums</a> &gt; <span class="el_source">DataLevel.java</span></div><h1>DataLevel.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.common.enums;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+/**
+ * 数据分级枚举 (M1 数据分级 L1~L4)
+ * L1: 公开 - 可对外发布
+ * L2: 内部 - 集团内部一般业务
+ * L3: 敏感 - 内部重要数据
+ * L4: 核心 - 集团核心竞争优势、国家安全
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc" id="L16">@Getter</span>
+<span class="nc" id="L17">@AllArgsConstructor</span>
+public enum DataLevel {
+
+<span class="nc" id="L20">    L1_PUBLIC(1, &quot;公开&quot;, &quot;可对外发布的数据&quot;),</span>
+<span class="nc" id="L21">    L2_INTERNAL(2, &quot;内部&quot;, &quot;集团内部一般业务数据&quot;),</span>
+<span class="nc" id="L22">    L3_SENSITIVE(3, &quot;敏感&quot;, &quot;内部重要数据&quot;),</span>
+<span class="nc" id="L23">    L4_CORE(4, &quot;核心&quot;, &quot;集团核心竞争优势、国家安全相关数据&quot;);</span>
+
+<span class="nc" id="L25">    private final int code;</span>
+<span class="nc" id="L26">    private final String name;</span>
+<span class="nc" id="L27">    private final String description;</span>
+
+    /**
+     * 根据code获取枚举
+     */
+    public static DataLevel fromCode(int code) {
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        for (DataLevel level : values()) {</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">            if (level.code == code) {</span>
+<span class="nc" id="L35">                return level;</span>
+            }
+        }
+<span class="nc" id="L38">        throw new IllegalArgumentException(&quot;Invalid data level code: &quot; + code);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

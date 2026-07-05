@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Sm4CbcServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.crypto</a> &gt; <span class="el_source">Sm4CbcServiceImpl.java</span></div><h1>Sm4CbcServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.crypto;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.encoders.Base64;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.Security;
+import java.util.Arrays;
+
+/**
+ * 国密 SM4-CBC 加解密实现
+ * 使用 Bouncy Castle SM4Engine 实现，CBC 模式，PKCS7 填充
+ *
+ * @author Security Officer
+ * @since 2026-07-05
+ */
+<span class="fc" id="L24">@Slf4j</span>
+@Service
+<span class="fc" id="L26">@RequiredArgsConstructor</span>
+public class Sm4CbcServiceImpl implements Sm4Service {
+
+    private static final String ALGORITHM = &quot;SM4&quot;;
+    private static final String TRANSFORMATION = &quot;SM4/CBC/PKCS7Padding&quot;;
+    private static final int IV_LENGTH = 16;
+
+    private final Sm4KeyProvider keyProvider;
+
+    static {
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {</span>
+<span class="fc" id="L37">            Security.addProvider(new BouncyCastleProvider());</span>
+        }
+<span class="fc" id="L39">    }</span>
+
+    @Override
+    public String encrypt(String plainText) {
+<span class="fc bfc" id="L43" title="All 4 branches covered.">        if (plainText == null || plainText.isBlank()) {</span>
+<span class="fc" id="L44">            return plainText;</span>
+        }
+
+        try {
+<span class="fc" id="L48">            byte[] key = keyProvider.getKey();</span>
+<span class="fc" id="L49">            byte[] iv = generateRandomIV();</span>
+
+<span class="fc" id="L51">            Cipher cipher = Cipher.getInstance(TRANSFORMATION, BouncyCastleProvider.PROVIDER_NAME);</span>
+<span class="fc" id="L52">            SecretKeySpec keySpec = new SecretKeySpec(key, ALGORITHM);</span>
+<span class="fc" id="L53">            IvParameterSpec ivSpec = new IvParameterSpec(iv);</span>
+<span class="fc" id="L54">            cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);</span>
+
+<span class="fc" id="L56">            byte[] plainBytes = plainText.getBytes(StandardCharsets.UTF_8);</span>
+<span class="fc" id="L57">            byte[] encrypted = cipher.doFinal(plainBytes);</span>
+
+            // Prepend IV to ciphertext for storage
+<span class="fc" id="L60">            byte[] result = new byte[IV_LENGTH + encrypted.length];</span>
+<span class="fc" id="L61">            System.arraycopy(iv, 0, result, 0, IV_LENGTH);</span>
+<span class="fc" id="L62">            System.arraycopy(encrypted, 0, result, IV_LENGTH, encrypted.length);</span>
+
+<span class="fc" id="L64">            return Base64.toBase64String(result);</span>
+<span class="nc" id="L65">        } catch (Exception e) {</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">            if (e instanceof Sm4EncryptionException) {</span>
+<span class="nc" id="L67">                throw (Sm4EncryptionException) e;</span>
+            }
+<span class="nc" id="L69">            throw new Sm4EncryptionException(&quot;SM4 encryption failed: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    @Override
+    public String decrypt(String cipherText) {
+<span class="fc bfc" id="L75" title="All 4 branches covered.">        if (cipherText == null || cipherText.isBlank()) {</span>
+<span class="fc" id="L76">            return cipherText;</span>
+        }
+
+        try {
+<span class="fc" id="L80">            byte[] key = keyProvider.getKey();</span>
+<span class="fc" id="L81">            byte[] encryptedData = Base64.decode(cipherText);</span>
+
+            // Extract IV from the beginning
+<span class="fc" id="L84">            byte[] iv = Arrays.copyOfRange(encryptedData, 0, IV_LENGTH);</span>
+<span class="fc" id="L85">            byte[] ciphertext = Arrays.copyOfRange(encryptedData, IV_LENGTH, encryptedData.length);</span>
+
+<span class="fc" id="L87">            Cipher cipher = Cipher.getInstance(TRANSFORMATION, BouncyCastleProvider.PROVIDER_NAME);</span>
+<span class="fc" id="L88">            SecretKeySpec keySpec = new SecretKeySpec(key, ALGORITHM);</span>
+<span class="fc" id="L89">            IvParameterSpec ivSpec = new IvParameterSpec(iv);</span>
+<span class="fc" id="L90">            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);</span>
+
+<span class="fc" id="L92">            byte[] decrypted = cipher.doFinal(ciphertext);</span>
+<span class="fc" id="L93">            return new String(decrypted, StandardCharsets.UTF_8);</span>
+<span class="fc" id="L94">        } catch (Exception e) {</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (e instanceof Sm4EncryptionException) {</span>
+<span class="nc" id="L96">                throw (Sm4EncryptionException) e;</span>
+            }
+<span class="fc" id="L98">            throw new Sm4EncryptionException(&quot;SM4 decryption failed: &quot; + e.getMessage(), e);</span>
+        }
+    }
+
+    /**
+     * 生成随机 IV（16字节）
+     */
+    private byte[] generateRandomIV() {
+<span class="fc" id="L106">        byte[] iv = new byte[IV_LENGTH];</span>
+<span class="fc" id="L107">        new java.security.SecureRandom().nextBytes(iv);</span>
+<span class="fc" id="L108">        return iv;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

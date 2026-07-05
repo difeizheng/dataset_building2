@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataClassificationEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.classification.engine</a> &gt; <span class="el_source">DataClassificationEngine.java</span></div><h1>DataClassificationEngine.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.classification.engine;
+
+import com.ctg.dataFab.common.enums.DataLevel;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.*;
+import java.util.regex.Pattern;
+
+/**
+ * 数据分级引擎 (M1)
+ * 实现 L1-L4 四级自动分级
+ *
+ * L1 公开：可对外发布的数据
+ * L2 内部：集团内部一般业务数据
+ * L3 敏感：内部重要数据，需要TDE+字段掩码+部门审批
+ * L4 核心：集团核心竞争优势、国家安全相关数据，需要国密SM4加密+多重审批+阻断式审计+禁下载/打印/外发
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc" id="L22">@Slf4j</span>
+<span class="nc" id="L23">public class DataClassificationEngine {</span>
+
+    /**
+     * 分级结果
+     */
+<span class="nc bnc" id="L28" title="All 54 branches missed.">    @Data</span>
+    public static class ClassificationResult {
+<span class="nc" id="L30">        private DataLevel level;</span>
+<span class="nc" id="L31">        private String reason;</span>
+<span class="nc" id="L32">        private List&lt;String&gt; matchedRules;</span>
+<span class="nc" id="L33">        private boolean requiresEncryption;</span>
+<span class="nc" id="L34">        private boolean requiresApproval;</span>
+<span class="nc" id="L35">        private boolean blockDownload;</span>
+<span class="nc" id="L36">        private boolean blockPrint;</span>
+<span class="nc" id="L37">        private boolean blockExport;</span>
+<span class="nc" id="L38">        private boolean requireWatermark;</span>
+
+<span class="nc" id="L40">        public ClassificationResult() {</span>
+<span class="nc" id="L41">            this.matchedRules = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L42">        }</span>
+    }
+
+    /**
+     * 分级规则配置
+     */
+<span class="nc" id="L48">    private static final Map&lt;DataLevel, ClassificationRule&gt; RULES = new LinkedHashMap&lt;&gt;();</span>
+
+    static {
+        // L4 核心数据规则
+<span class="nc" id="L52">        ClassificationRule l4Rule = new ClassificationRule();</span>
+<span class="nc" id="L53">        l4Rule.setKeywords(Arrays.asList(</span>
+                &quot;核心机密&quot;, &quot;国家安全&quot;, &quot;战略&quot;, &quot;绝密&quot;, &quot;核心算法&quot;,
+                &quot;核心模型&quot;, &quot;核心参数&quot;, &quot;商业机密&quot;, &quot;核心专利&quot;, &quot;国防&quot;
+        ));
+<span class="nc" id="L57">        l4Rule.setPatterns(Arrays.asList(</span>
+<span class="nc" id="L58">                Pattern.compile(&quot;.*核心.*机密.*&quot;),</span>
+<span class="nc" id="L59">                Pattern.compile(&quot;.*国家安全.*&quot;),</span>
+<span class="nc" id="L60">                Pattern.compile(&quot;.*绝密.*&quot;),</span>
+<span class="nc" id="L61">                Pattern.compile(&quot;.*战略.*决策.*&quot;)</span>
+        ));
+<span class="nc" id="L63">        l4Rule.setFileTypes(Arrays.asList(&quot;encrypted&quot;, &quot;secure&quot;));</span>
+<span class="nc" id="L64">        RULES.put(DataLevel.L4_CORE, l4Rule);</span>
+
+        // L3 敏感数据规则
+<span class="nc" id="L67">        ClassificationRule l3Rule = new ClassificationRule();</span>
+<span class="nc" id="L68">        l3Rule.setKeywords(Arrays.asList(</span>
+                &quot;敏感&quot;, &quot;机密&quot;, &quot;内部重要&quot;, &quot;财务&quot;, &quot;人事&quot;,
+                &quot;薪资&quot;, &quot;合同&quot;, &quot;客户信息&quot;, &quot;身份证&quot;, &quot;手机号&quot;
+        ));
+<span class="nc" id="L72">        l3Rule.setPatterns(Arrays.asList(</span>
+<span class="nc" id="L73">                Pattern.compile(&quot;.*敏感.*数据.*&quot;),</span>
+<span class="nc" id="L74">                Pattern.compile(&quot;.*财务.*报表.*&quot;),</span>
+<span class="nc" id="L75">                Pattern.compile(&quot;.*人事.*档案.*&quot;),</span>
+<span class="nc" id="L76">                Pattern.compile(&quot;.*客户.*信息.*&quot;)</span>
+        ));
+<span class="nc" id="L78">        l3Rule.setFileTypes(Arrays.asList(&quot;confidential&quot;));</span>
+<span class="nc" id="L79">        RULES.put(DataLevel.L3_SENSITIVE, l3Rule);</span>
+
+        // L2 内部数据规则
+<span class="nc" id="L82">        ClassificationRule l2Rule = new ClassificationRule();</span>
+<span class="nc" id="L83">        l2Rule.setKeywords(Arrays.asList(</span>
+                &quot;内部&quot;, &quot;一般业务&quot;, &quot;工作文档&quot;, &quot;会议纪要&quot;,
+                &quot;内部通知&quot;, &quot;内部报告&quot;
+        ));
+<span class="nc" id="L87">        l2Rule.setPatterns(Arrays.asList(</span>
+<span class="nc" id="L88">                Pattern.compile(&quot;.*内部.*&quot;),</span>
+<span class="nc" id="L89">                Pattern.compile(&quot;.*工作.*文档.*&quot;)</span>
+        ));
+<span class="nc" id="L91">        l2Rule.setFileTypes(Arrays.asList(&quot;internal&quot;));</span>
+<span class="nc" id="L92">        RULES.put(DataLevel.L2_INTERNAL, l2Rule);</span>
+
+        // L1 公开数据规则 (默认)
+<span class="nc" id="L95">        ClassificationRule l1Rule = new ClassificationRule();</span>
+<span class="nc" id="L96">        l1Rule.setKeywords(Arrays.asList(</span>
+                &quot;公开&quot;, &quot;对外&quot;, &quot;发布&quot;, &quot;公告&quot;
+        ));
+<span class="nc" id="L99">        l1Rule.setPatterns(Arrays.asList(</span>
+<span class="nc" id="L100">                Pattern.compile(&quot;.*公开.*&quot;),</span>
+<span class="nc" id="L101">                Pattern.compile(&quot;.*对外.*发布.*&quot;)</span>
+        ));
+<span class="nc" id="L103">        l1Rule.setFileTypes(Arrays.asList(&quot;public&quot;));</span>
+<span class="nc" id="L104">        RULES.put(DataLevel.L1_PUBLIC, l1Rule);</span>
+<span class="nc" id="L105">    }</span>
+
+    /**
+     * 自动分级
+     *
+     * @param context 分级上下文
+     * @return 分级结果
+     */
+    public static ClassificationResult classify(ClassificationContext context) {
+<span class="nc" id="L114">        log.info(&quot;开始数据分级: name={}, type={}&quot;, context.getName(), context.getType());</span>
+
+<span class="nc" id="L116">        ClassificationResult result = new ClassificationResult();</span>
+
+        // 按优先级检查每个级别
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        for (Map.Entry&lt;DataLevel, ClassificationRule&gt; entry : RULES.entrySet()) {</span>
+<span class="nc" id="L120">            DataLevel level = entry.getKey();</span>
+<span class="nc" id="L121">            ClassificationRule rule = entry.getValue();</span>
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            if (matchesRule(context, rule)) {</span>
+<span class="nc" id="L124">                result.setLevel(level);</span>
+<span class="nc" id="L125">                result.getMatchedRules().add(&quot;匹配规则: &quot; + level.name());</span>
+<span class="nc" id="L126">                break;</span>
+            }
+<span class="nc" id="L128">        }</span>
+
+        // 如果没有匹配任何规则，默认为L1
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (result.getLevel() == null) {</span>
+<span class="nc" id="L132">            result.setLevel(DataLevel.L1_PUBLIC);</span>
+<span class="nc" id="L133">            result.getMatchedRules().add(&quot;默认分级: L1_PUBLIC&quot;);</span>
+        }
+
+        // 设置安全要求
+<span class="nc" id="L137">        applySecurityRequirements(result);</span>
+
+        // 生成分级原因
+<span class="nc" id="L140">        result.setReason(generateReason(result));</span>
+
+<span class="nc" id="L142">        log.info(&quot;数据分级完成: level={}, reason={}&quot;, result.getLevel(), result.getReason());</span>
+<span class="nc" id="L143">        return result;</span>
+    }
+
+    /**
+     * 检查是否匹配规则
+     */
+    private static boolean matchesRule(ClassificationContext context, ClassificationRule rule) {
+        // 检查关键词
+<span class="nc" id="L151">        String text = (context.getName() + &quot; &quot; +</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">                (context.getDescription() != null ? context.getDescription() : &quot;&quot;) + &quot; &quot; +</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">                (context.getTags() != null ? context.getTags() : &quot;&quot;)).toLowerCase();</span>
+
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        for (String keyword : rule.getKeywords()) {</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (text.contains(keyword.toLowerCase())) {</span>
+<span class="nc" id="L157">                return true;</span>
+            }
+<span class="nc" id="L159">        }</span>
+
+        // 检查正则模式
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        for (Pattern pattern : rule.getPatterns()) {</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            if (pattern.matcher(text).matches()) {</span>
+<span class="nc" id="L164">                return true;</span>
+            }
+<span class="nc" id="L166">        }</span>
+
+        // 检查文件类型
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        if (context.getMetadata() != null) {</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">            for (String fileType : rule.getFileTypes()) {</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                if (context.getMetadata().toLowerCase().contains(fileType.toLowerCase())) {</span>
+<span class="nc" id="L172">                    return true;</span>
+                }
+<span class="nc" id="L174">            }</span>
+        }
+
+<span class="nc" id="L177">        return false;</span>
+    }
+
+    /**
+     * 应用安全要求
+     */
+    private static void applySecurityRequirements(ClassificationResult result) {
+<span class="nc bnc" id="L184" title="All 4 branches missed.">        switch (result.getLevel()) {</span>
+            case L4_CORE:
+<span class="nc" id="L186">                result.setRequiresEncryption(true);  // 国密SM4加密</span>
+<span class="nc" id="L187">                result.setRequiresApproval(true);     // 多重审批</span>
+<span class="nc" id="L188">                result.setBlockDownload(true);        // 禁止下载</span>
+<span class="nc" id="L189">                result.setBlockPrint(true);           // 禁止打印</span>
+<span class="nc" id="L190">                result.setBlockExport(true);          // 禁止外发</span>
+<span class="nc" id="L191">                result.setRequireWatermark(true);     // 强制水印</span>
+<span class="nc" id="L192">                break;</span>
+            case L3_SENSITIVE:
+<span class="nc" id="L194">                result.setRequiresEncryption(true);   // TDE加密</span>
+<span class="nc" id="L195">                result.setRequiresApproval(true);     // 部门审批</span>
+<span class="nc" id="L196">                result.setBlockDownload(false);</span>
+<span class="nc" id="L197">                result.setBlockPrint(false);</span>
+<span class="nc" id="L198">                result.setBlockExport(false);</span>
+<span class="nc" id="L199">                result.setRequireWatermark(true);     // 建议水印</span>
+<span class="nc" id="L200">                break;</span>
+            case L2_INTERNAL:
+<span class="nc" id="L202">                result.setRequiresEncryption(false);</span>
+<span class="nc" id="L203">                result.setRequiresApproval(false);</span>
+<span class="nc" id="L204">                result.setBlockDownload(false);</span>
+<span class="nc" id="L205">                result.setBlockPrint(false);</span>
+<span class="nc" id="L206">                result.setBlockExport(false);</span>
+<span class="nc" id="L207">                result.setRequireWatermark(false);</span>
+<span class="nc" id="L208">                break;</span>
+            case L1_PUBLIC:
+            default:
+<span class="nc" id="L211">                result.setRequiresEncryption(false);</span>
+<span class="nc" id="L212">                result.setRequiresApproval(false);</span>
+<span class="nc" id="L213">                result.setBlockDownload(false);</span>
+<span class="nc" id="L214">                result.setBlockPrint(false);</span>
+<span class="nc" id="L215">                result.setBlockExport(false);</span>
+<span class="nc" id="L216">                result.setRequireWatermark(false);</span>
+                break;
+        }
+<span class="nc" id="L219">    }</span>
+
+    /**
+     * 生成分级原因
+     */
+    private static String generateReason(ClassificationResult result) {
+<span class="nc" id="L225">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L226">        sb.append(&quot;数据分级为 &quot;).append(result.getLevel().getName());</span>
+<span class="nc" id="L227">        sb.append(&quot; (&quot;).append(result.getLevel().getDescription()).append(&quot;)&quot;);</span>
+
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (!result.getMatchedRules().isEmpty()) {</span>
+<span class="nc" id="L230">            sb.append(&quot;。匹配规则: &quot;).append(String.join(&quot;, &quot;, result.getMatchedRules()));</span>
+        }
+
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        if (result.isRequiresEncryption()) {</span>
+<span class="nc" id="L234">            sb.append(&quot;。需要加密保护&quot;);</span>
+        }
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        if (result.isBlockDownload()) {</span>
+<span class="nc" id="L237">            sb.append(&quot;。禁止下载&quot;);</span>
+        }
+<span class="nc bnc" id="L239" title="All 2 branches missed.">        if (result.isBlockPrint()) {</span>
+<span class="nc" id="L240">            sb.append(&quot;。禁止打印&quot;);</span>
+        }
+<span class="nc bnc" id="L242" title="All 2 branches missed.">        if (result.isBlockExport()) {</span>
+<span class="nc" id="L243">            sb.append(&quot;。禁止外发&quot;);</span>
+        }
+
+<span class="nc" id="L246">        return sb.toString();</span>
+    }
+
+    /**
+     * 分级规则内部类
+     */
+<span class="nc bnc" id="L252" title="All 30 branches missed.">    @Data</span>
+    private static class ClassificationRule {
+<span class="nc" id="L254">        private List&lt;String&gt; keywords = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L255">        private List&lt;Pattern&gt; patterns = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L256">        private List&lt;String&gt; fileTypes = new ArrayList&lt;&gt;();</span>
+    }
+
+    /**
+     * 分级上下文
+     */
+<span class="nc bnc" id="L262" title="All 46 branches missed.">    @Data</span>
+    public static class ClassificationContext {
+<span class="nc" id="L264">        private String name;</span>
+<span class="nc" id="L265">        private String description;</span>
+<span class="nc" id="L266">        private String type;</span>
+<span class="nc" id="L267">        private String tags;</span>
+<span class="nc" id="L268">        private String metadata;</span>
+
+<span class="nc" id="L270">        public ClassificationContext() {</span>
+<span class="nc" id="L271">        }</span>
+
+<span class="nc" id="L273">        public ClassificationContext(String name, String description, String type) {</span>
+<span class="nc" id="L274">            this.name = name;</span>
+<span class="nc" id="L275">            this.description = description;</span>
+<span class="nc" id="L276">            this.type = type;</span>
+<span class="nc" id="L277">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

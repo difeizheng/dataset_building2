@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataSampleCreateRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.ingest.dto</a> &gt; <span class="el_source">DataSampleCreateRequest.java</span></div><h1>DataSampleCreateRequest.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.ingest.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+/**
+ * 数据样本创建请求DTO
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="pc bnc" id="L14" title="All 78 branches missed.">@Data</span>
+@Schema(description = &quot;数据样本创建请求&quot;)
+public class DataSampleCreateRequest {
+
+    @NotBlank(message = &quot;数据名称不能为空&quot;)
+    @Schema(description = &quot;数据名称&quot;, example = &quot;示例文本数据&quot;)
+<span class="nc" id="L20">    private String name;</span>
+
+    @NotNull(message = &quot;数据模态不能为空&quot;)
+    @Schema(description = &quot;数据模态：1-文本，2-图像，3-音频，4-视频&quot;, example = &quot;1&quot;)
+<span class="nc" id="L24">    private Integer modality;</span>
+
+    @NotNull(message = &quot;数据分级不能为空&quot;)
+    @Schema(description = &quot;数据分级：1-L1公开，2-L2内部，3-L3敏感，4-L4核心&quot;, example = &quot;2&quot;)
+<span class="nc" id="L28">    private Integer dataLevel;</span>
+
+    @Schema(description = &quot;数据来源&quot;, example = &quot;用户上传&quot;)
+<span class="nc" id="L31">    private String source;</span>
+
+    @NotBlank(message = &quot;文件路径不能为空&quot;)
+    @Schema(description = &quot;文件路径&quot;, example = &quot;/data/text/sample1.txt&quot;)
+<span class="nc" id="L35">    private String filePath;</span>
+
+    @Schema(description = &quot;文件大小（字节）&quot;, example = &quot;1024&quot;)
+<span class="nc" id="L38">    private Long fileSize;</span>
+
+    @Schema(description = &quot;文件类型/MIME类型&quot;, example = &quot;text/plain&quot;)
+<span class="nc" id="L41">    private String mimeType;</span>
+
+    @Schema(description = &quot;文件MD5哈希&quot;, example = &quot;d41d8cd98f00b204e9800998ecf8427e&quot;)
+<span class="nc" id="L44">    private String fileHash;</span>
+
+    @Schema(description = &quot;元数据（JSON格式）&quot;)
+<span class="nc" id="L47">    private String metadata;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

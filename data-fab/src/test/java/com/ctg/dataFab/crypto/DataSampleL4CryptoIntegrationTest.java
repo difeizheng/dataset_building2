@@ -1,5 +1,6 @@
 package com.ctg.dataFab.crypto;
 
+import com.ctg.dataFab.common.enums.DataStatus;
 import com.ctg.dataFab.ingest.entity.DataSample;
 import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
 import com.ctg.dataFab.ingest.service.DataSampleService;
@@ -92,6 +93,54 @@ class DataSampleL4CryptoIntegrationTest {
         DataSample rawSample = dataSampleMapper.selectById(sampleId);
         assertThat(rawSample.getFilePath()).isEqualTo(originalFilePath);
         assertThat(rawSample.getMetadata()).isEqualTo(originalMetadata);
+
+        // 清理测试数据
+        dataSampleMapper.deleteById(sampleId);
+    }
+
+    @Test
+    @DisplayName("L4 数据 updateDataSampleStatus 不破坏加密数据（无双重解密）")
+    void l4Data_updateStatus_noDoubleDecryption() {
+        // 准备测试数据
+        String originalFilePath = "/data/samples/secret/report.xlsx";
+        String originalMetadata = "{\"classification\":\"L4\",\"owner\":\"admin\"}";
+
+        // 创建 L4 数据样本
+        com.ctg.dataFab.ingest.dto.DataSampleCreateRequest request =
+            new com.ctg.dataFab.ingest.dto.DataSampleCreateRequest();
+        request.setName("L4 Update Status Test");
+        request.setModality(1);
+        request.setDataLevel(4);
+        request.setFilePath(originalFilePath);
+        request.setMetadata(originalMetadata);
+        request.setSource("integration-test");
+        request.setMimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+        Long sampleId = dataSampleService.createDataSample(request);
+
+        // 验证落盘是密文
+        DataSample rawSampleBefore = dataSampleMapper.selectById(sampleId);
+        assertThat(rawSampleBefore.getFilePath()).isNotEqualTo(originalFilePath);
+        assertThat(rawSampleBefore.getMetadata()).isNotEqualTo(originalMetadata);
+        assertThat(rawSampleBefore.getStatus()).isEqualTo(DataStatus.NEW.getCode());
+
+        // update 状态（这里如果用 getDataSampleById 会导致双重解密 bug）
+        dataSampleService.updateDataSampleStatus(sampleId, DataStatus.LABELED.getCode());
+
+        // 验证数据库中仍然是密文（没有被双重解密成明文）
+        DataSample rawSampleAfter = dataSampleMapper.selectById(sampleId);
+        assertThat(rawSampleAfter.getFilePath())
+            .isNotEqualTo(originalFilePath)
+            .isEqualTo(rawSampleBefore.getFilePath());  // 密文应保持不变
+        assertThat(rawSampleAfter.getMetadata())
+            .isNotEqualTo(originalMetadata)
+            .isEqualTo(rawSampleBefore.getMetadata());  // 密文应保持不变
+        assertThat(rawSampleAfter.getStatus()).isEqualTo(DataStatus.LABELED.getCode());
+
+        // 验证读取时仍能正确解密为明文
+        DataSample decryptedSample = dataSampleService.getDataSampleById(sampleId);
+        assertThat(decryptedSample.getFilePath()).isEqualTo(originalFilePath);
+        assertThat(decryptedSample.getMetadata()).isEqualTo(originalMetadata);
 
         // 清理测试数据
         dataSampleMapper.deleteById(sampleId);

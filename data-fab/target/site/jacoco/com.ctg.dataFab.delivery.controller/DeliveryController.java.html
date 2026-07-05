@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DeliveryController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.delivery.controller</a> &gt; <span class="el_source">DeliveryController.java</span></div><h1>DeliveryController.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.delivery.controller;
+
+import com.ctg.dataFab.common.dto.ApiResponse;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.dto.PageResponse;
+import com.ctg.dataFab.delivery.dto.PublishRequest;
+import com.ctg.dataFab.delivery.dto.PublishResponse;
+import com.ctg.dataFab.delivery.entity.DeliveryRecord;
+import com.ctg.dataFab.delivery.service.DeliveryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 数据集交付控制器
+ * 对应接口：POST /api/v1/delivery/publish, GET /api/v1/delivery/{id}/download
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L25">@Slf4j</span>
+@RestController
+@RequestMapping(&quot;/api/v1/delivery&quot;)
+<span class="fc" id="L28">@RequiredArgsConstructor</span>
+@Tag(name = &quot;数据集交付&quot;, description = &quot;数据集发布、下载、版本管理接口&quot;)
+public class DeliveryController {
+
+    private final DeliveryService deliveryService;
+
+    @PostMapping(&quot;/publish&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    @Operation(summary = &quot;发布数据集&quot;)
+    public ApiResponse&lt;PublishResponse&gt; publish(@Valid @RequestBody PublishRequest request) {
+<span class="nc" id="L38">        PublishResponse response = deliveryService.publish(request);</span>
+<span class="nc" id="L39">        return ApiResponse.success(response);</span>
+    }
+
+    @GetMapping(&quot;/records/{id}&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')&quot;)
+    @Operation(summary = &quot;获取交付记录详情&quot;)
+    public ApiResponse&lt;DeliveryRecord&gt; getRecord(@PathVariable Long id) {
+<span class="nc" id="L46">        DeliveryRecord record = deliveryService.getRecordById(id);</span>
+<span class="nc" id="L47">        return ApiResponse.success(record);</span>
+    }
+
+    @GetMapping(&quot;/records&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')&quot;)
+    @Operation(summary = &quot;分页查询交付记录&quot;)
+    public ApiResponse&lt;PageResponse&lt;DeliveryRecord&gt;&gt; listRecords(
+            @RequestParam(required = false) Long datasetId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = &quot;1&quot;) Integer pageNum,
+            @RequestParam(defaultValue = &quot;20&quot;) Integer pageSize) {
+
+<span class="nc" id="L59">        PageRequest pageRequest = new PageRequest();</span>
+<span class="nc" id="L60">        pageRequest.setPageNum(pageNum);</span>
+<span class="nc" id="L61">        pageRequest.setPageSize(pageSize);</span>
+
+<span class="nc" id="L63">        var page = deliveryService.listRecords(datasetId, status, pageRequest);</span>
+<span class="nc" id="L64">        PageResponse&lt;DeliveryRecord&gt; response = PageResponse.of(</span>
+<span class="nc" id="L65">                page.getRecords(),</span>
+<span class="nc" id="L66">                page.getTotal(),</span>
+<span class="nc" id="L67">                (int) page.getCurrent(),</span>
+<span class="nc" id="L68">                (int) page.getSize()</span>
+        );
+
+<span class="nc" id="L71">        return ApiResponse.success(response);</span>
+    }
+
+    @GetMapping(&quot;/{id}/download&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR')&quot;)
+    @Operation(summary = &quot;生成下载令牌&quot;)
+    public ApiResponse&lt;String&gt; generateDownloadToken(
+            @PathVariable Long id,
+            @RequestParam Long userId,
+            @RequestParam(required = false) String approvalId) {
+<span class="nc" id="L81">        String token = deliveryService.generateDownloadToken(id, userId, approvalId);</span>
+<span class="nc" id="L82">        return ApiResponse.success(token);</span>
+    }
+
+    @PostMapping(&quot;/records/{id}/unpublish&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    @Operation(summary = &quot;下架数据集&quot;)
+    public ApiResponse&lt;Void&gt; unpublish(@PathVariable Long id) {
+<span class="nc" id="L89">        deliveryService.unpublish(id);</span>
+<span class="nc" id="L90">        return ApiResponse.success();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

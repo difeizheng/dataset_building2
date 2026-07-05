@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SubmitLabelRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.label.dto</a> &gt; <span class="el_source">SubmitLabelRequest.java</span></div><h1>SubmitLabelRequest.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.label.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+/**
+ * 提交标注请求
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc bnc" id="L14" title="All 46 branches missed.">@Data</span>
+@Schema(description = &quot;提交标注请求&quot;)
+public class SubmitLabelRequest {
+
+    @NotNull(message = &quot;任务ID不能为空&quot;)
+    @Schema(description = &quot;标注任务ID&quot;)
+<span class="nc" id="L20">    private Long taskId;</span>
+
+    @NotNull(message = &quot;样本ID不能为空&quot;)
+    @Schema(description = &quot;数据样本ID&quot;)
+<span class="nc" id="L24">    private Long sampleId;</span>
+
+    @NotNull(message = &quot;标注员ID不能为空&quot;)
+    @Schema(description = &quot;标注员ID&quot;)
+<span class="nc" id="L28">    private Long annotatorId;</span>
+
+    @NotBlank(message = &quot;标注结果不能为空&quot;)
+    @Schema(description = &quot;标注结果（JSON格式）&quot;)
+<span class="nc" id="L32">    private String annotations;</span>
+
+    @Schema(description = &quot;标注耗时（秒）&quot;)
+<span class="nc" id="L35">    private Long durationSeconds;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

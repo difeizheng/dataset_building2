@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatasetCreateRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.ingest.dto</a> &gt; <span class="el_source">DatasetCreateRequest.java</span></div><h1>DatasetCreateRequest.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.ingest.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+/**
+ * 数据集创建请求DTO
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc bnc" id="L14" title="All 54 branches missed.">@Data</span>
+@Schema(description = &quot;数据集创建请求&quot;)
+public class DatasetCreateRequest {
+
+    @NotBlank(message = &quot;数据集名称不能为空&quot;)
+    @Schema(description = &quot;数据集名称&quot;, example = &quot;三峡设备文本数据集&quot;)
+<span class="nc" id="L20">    private String name;</span>
+
+    @Schema(description = &quot;数据集描述&quot;, example = &quot;用于设备故障诊断的文本数据集&quot;)
+<span class="nc" id="L23">    private String description;</span>
+
+    @NotNull(message = &quot;数据模态不能为空&quot;)
+    @Schema(description = &quot;数据模态：1-文本，2-图像，3-音频，4-视频&quot;, example = &quot;1&quot;)
+<span class="nc" id="L27">    private Integer modality;</span>
+
+    @NotNull(message = &quot;数据分级不能为空&quot;)
+    @Schema(description = &quot;数据分级：1-L1公开，2-L2内部，3-L3敏感，4-L4核心&quot;, example = &quot;2&quot;)
+<span class="nc" id="L31">    private Integer dataLevel;</span>
+
+    @Schema(description = &quot;版本号&quot;, example = &quot;1.0.0&quot;)
+<span class="nc" id="L34">    private String version;</span>
+
+    @Schema(description = &quot;标签（JSON数组）&quot;, example = &quot;[\&quot;设备\&quot;,\&quot;故障诊断\&quot;]&quot;)
+<span class="nc" id="L37">    private String tags;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -18,25 +18,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class Sm4KeyProviderTest {
 
     @Test
-    @DisplayName("未配置密钥时抛出异常")
-    void getKey_notConfigured_throwsException() {
+    @DisplayName("未配置密钥时 @PostConstruct 抛出异常（启动 fail-fast）")
+    void validateKeyConfiguration_notConfigured_throwsException() {
         EnvironmentSm4KeyProvider provider = new EnvironmentSm4KeyProvider();
         setField(provider, "encryptionKey", "");
 
-        assertThatThrownBy(provider::getKey)
+        assertThatThrownBy(provider::validateKeyConfiguration)
             .isInstanceOf(Sm4EncryptionException.class)
             .hasMessageContaining("not configured");
     }
 
     @Test
-    @DisplayName("密钥长度非16字节时抛出异常")
-    void getKey_invalidLength_throwsException() {
+    @DisplayName("密钥长度非16字节时 @PostConstruct 抛出异常（启动 fail-fast）")
+    void validateKeyConfiguration_invalidLength_throwsException() {
         EnvironmentSm4KeyProvider provider = new EnvironmentSm4KeyProvider();
         // 设置 15 字节密钥
         String shortKey = Base64.getEncoder().encodeToString("123456789012345".getBytes());
         setField(provider, "encryptionKey", shortKey);
 
-        assertThatThrownBy(provider::getKey)
+        assertThatThrownBy(provider::validateKeyConfiguration)
             .isInstanceOf(Sm4EncryptionException.class)
             .hasMessageContaining("16 bytes");
     }
@@ -51,19 +51,37 @@ class Sm4KeyProviderTest {
         EnvironmentSm4KeyProvider provider = new EnvironmentSm4KeyProvider();
         setField(provider, "encryptionKey", validKey);
 
+        // getKey() 只负责解码，校验已由 @PostConstruct 完成
         byte[] result = provider.getKey();
         assertThat(result).hasSize(16);
     }
 
     @Test
-    @DisplayName("非 Base64 格式时抛出异常")
-    void getKey_invalidBase64_throwsException() {
+    @DisplayName("非 Base64 格式时 @PostConstruct 抛出异常（启动 fail-fast）")
+    void validateKeyConfiguration_invalidBase64_throwsException() {
         EnvironmentSm4KeyProvider provider = new EnvironmentSm4KeyProvider();
         setField(provider, "encryptionKey", "not-valid-base64!!!");
 
-        assertThatThrownBy(provider::getKey)
+        assertThatThrownBy(provider::validateKeyConfiguration)
             .isInstanceOf(Sm4EncryptionException.class)
             .hasMessageContaining("Base64");
+    }
+
+    @Test
+    @DisplayName("@PostConstruct 校验通过后 getKey 正常解码")
+    void validateKeyConfiguration_thenGetKey_works() {
+        byte[] key16Bytes = "1234567890123456".getBytes();
+        String validKey = Base64.getEncoder().encodeToString(key16Bytes);
+
+        EnvironmentSm4KeyProvider provider = new EnvironmentSm4KeyProvider();
+        setField(provider, "encryptionKey", validKey);
+
+        // 校验通过（无异常）
+        provider.validateKeyConfiguration();
+
+        // getKey 正常返回
+        byte[] result = provider.getKey();
+        assertThat(result).hasSize(16);
     }
 
     private void setField(Object target, String fieldName, String value) {

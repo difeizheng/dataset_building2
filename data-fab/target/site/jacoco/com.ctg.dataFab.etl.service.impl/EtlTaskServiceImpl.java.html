@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EtlTaskServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.etl.service.impl</a> &gt; <span class="el_source">EtlTaskServiceImpl.java</span></div><h1>EtlTaskServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.etl.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.enums.DataStatus;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.etl.entity.EtlRule;
+import com.ctg.dataFab.etl.entity.EtlTask;
+import com.ctg.dataFab.etl.mapper.EtlRuleMapper;
+import com.ctg.dataFab.etl.mapper.EtlTaskMapper;
+import com.ctg.dataFab.etl.service.EtlTaskService;
+import com.ctg.dataFab.ingest.entity.DataSample;
+import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
+import com.ctg.dataFab.ingest.service.DatasetService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * 清洗任务服务实现
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L31">@Slf4j</span>
+@Service
+<span class="fc" id="L33">@RequiredArgsConstructor</span>
+public class EtlTaskServiceImpl implements EtlTaskService {
+
+    private final EtlTaskMapper etlTaskMapper;
+    private final EtlRuleMapper etlRuleMapper;
+    private final DataSampleMapper dataSampleMapper;
+    private final DatasetService datasetService;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createTask(Long datasetId, String taskName) {
+<span class="nc" id="L44">        log.info(&quot;创建清洗任务: 数据集ID={}, 任务名={}&quot;, datasetId, taskName);</span>
+
+<span class="nc" id="L46">        EtlTask task = new EtlTask();</span>
+<span class="nc" id="L47">        task.setDatasetId(datasetId);</span>
+<span class="nc" id="L48">        task.setTaskName(taskName);</span>
+<span class="nc" id="L49">        task.setStatus(0); // 待执行</span>
+<span class="nc" id="L50">        task.setProcessedCount(0);</span>
+<span class="nc" id="L51">        task.setSuccessCount(0);</span>
+<span class="nc" id="L52">        task.setFailedCount(0);</span>
+
+<span class="nc" id="L54">        etlTaskMapper.insert(task);</span>
+<span class="nc" id="L55">        log.info(&quot;清洗任务创建成功, ID: {}&quot;, task.getId());</span>
+<span class="nc" id="L56">        return task.getId();</span>
+    }
+
+    @Override
+    @Async
+    public void executeTask(Long taskId) {
+<span class="nc" id="L62">        EtlTask task = getTaskById(taskId);</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        if (task.getStatus() != 0) {</span>
+<span class="nc" id="L64">            throw new BusinessException(&quot;任务状态不正确，无法执行&quot;);</span>
+        }
+
+<span class="nc" id="L67">        log.info(&quot;开始执行清洗任务, ID: {}&quot;, taskId);</span>
+<span class="nc" id="L68">        task.setStatus(1); // 执行中</span>
+<span class="nc" id="L69">        task.setStartTime(LocalDateTime.now());</span>
+<span class="nc" id="L70">        etlTaskMapper.updateById(task);</span>
+
+        try {
+            // 获取数据集的所有样本
+<span class="nc" id="L74">            LambdaQueryWrapper&lt;DataSample&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="nc" id="L75">            wrapper.eq(DataSample::getDatasetId, task.getDatasetId());</span>
+<span class="nc" id="L76">            List&lt;DataSample&gt; samples = dataSampleMapper.selectList(wrapper);</span>
+
+            // 获取适用的清洗规则
+<span class="nc" id="L79">            LambdaQueryWrapper&lt;EtlRule&gt; ruleWrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="nc" id="L80">            ruleWrapper.eq(EtlRule::getEnabled, 1)</span>
+<span class="nc" id="L81">                      .orderByDesc(EtlRule::getPriority);</span>
+<span class="nc" id="L82">            List&lt;EtlRule&gt; rules = etlRuleMapper.selectList(ruleWrapper);</span>
+
+<span class="nc" id="L84">            int processed = 0;</span>
+<span class="nc" id="L85">            int success = 0;</span>
+<span class="nc" id="L86">            int failed = 0;</span>
+
+            // 对每个样本应用清洗规则
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            for (DataSample sample : samples) {</span>
+                try {
+                    // TODO: 实现具体的清洗逻辑
+                    // 这里应该根据规则类型执行相应的清洗操作
+                    // 例如：去重、标准化、脱敏、分级等
+
+                    // 更新样本状态为已清洗
+<span class="nc" id="L96">                    sample.setStatus(DataStatus.CLEAN.getCode());</span>
+<span class="nc" id="L97">                    dataSampleMapper.updateById(sample);</span>
+
+<span class="nc" id="L99">                    success++;</span>
+<span class="nc" id="L100">                } catch (Exception e) {</span>
+<span class="nc" id="L101">                    log.error(&quot;清洗样本失败, 样本ID: {}&quot;, sample.getId(), e);</span>
+<span class="nc" id="L102">                    failed++;</span>
+<span class="nc" id="L103">                }</span>
+<span class="nc" id="L104">                processed++;</span>
+
+                // 更新任务进度
+<span class="nc" id="L107">                task.setProcessedCount(processed);</span>
+<span class="nc" id="L108">                task.setSuccessCount(success);</span>
+<span class="nc" id="L109">                task.setFailedCount(failed);</span>
+<span class="nc" id="L110">                etlTaskMapper.updateById(task);</span>
+<span class="nc" id="L111">            }</span>
+
+<span class="nc" id="L113">            task.setStatus(2); // 已完成</span>
+<span class="nc" id="L114">            task.setEndTime(LocalDateTime.now());</span>
+<span class="nc" id="L115">            etlTaskMapper.updateById(task);</span>
+
+            // 更新数据集统计信息
+<span class="nc" id="L118">            datasetService.updateDatasetStats(task.getDatasetId());</span>
+
+<span class="nc" id="L120">            log.info(&quot;清洗任务执行完成, ID: {}, 处理: {}, 成功: {}, 失败: {}&quot;,</span>
+<span class="nc" id="L121">                    taskId, processed, success, failed);</span>
+
+<span class="nc" id="L123">        } catch (Exception e) {</span>
+<span class="nc" id="L124">            log.error(&quot;清洗任务执行失败, ID: {}&quot;, taskId, e);</span>
+<span class="nc" id="L125">            task.setStatus(3); // 失败</span>
+<span class="nc" id="L126">            task.setEndTime(LocalDateTime.now());</span>
+<span class="nc" id="L127">            task.setErrorMessage(e.getMessage());</span>
+<span class="nc" id="L128">            etlTaskMapper.updateById(task);</span>
+<span class="nc" id="L129">        }</span>
+<span class="nc" id="L130">    }</span>
+
+    @Override
+    public EtlTask getTaskById(Long id) {
+<span class="nc" id="L134">        EtlTask task = etlTaskMapper.selectById(id);</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">        if (task == null) {</span>
+<span class="nc" id="L136">            throw new BusinessException(&quot;清洗任务不存在&quot;);</span>
+        }
+<span class="nc" id="L138">        return task;</span>
+    }
+
+    @Override
+    public Page&lt;EtlTask&gt; listTasks(Long datasetId, Integer status, PageRequest pageRequest) {
+<span class="nc" id="L143">        LambdaQueryWrapper&lt;EtlTask&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="nc bnc" id="L144" title="All 4 branches missed.">        wrapper.eq(datasetId != null, EtlTask::getDatasetId, datasetId)</span>
+<span class="nc" id="L145">               .eq(status != null, EtlTask::getStatus, status)</span>
+<span class="nc" id="L146">               .orderByDesc(EtlTask::getCreateTime);</span>
+
+<span class="nc" id="L148">        Page&lt;EtlTask&gt; page = new Page&lt;&gt;(pageRequest.getPageNum(), pageRequest.getPageSize());</span>
+<span class="nc" id="L149">        return etlTaskMapper.selectPage(page, wrapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelTask(Long taskId) {
+<span class="nc" id="L155">        EtlTask task = getTaskById(taskId);</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (task.getStatus() == 1) { // 执行中</span>
+<span class="nc" id="L157">            task.setStatus(3); // 标记为失败</span>
+<span class="nc" id="L158">            task.setEndTime(LocalDateTime.now());</span>
+<span class="nc" id="L159">            task.setErrorMessage(&quot;任务被取消&quot;);</span>
+<span class="nc" id="L160">            etlTaskMapper.updateById(task);</span>
+<span class="nc" id="L161">            log.info(&quot;清洗任务已取消, ID: {}&quot;, taskId);</span>
+        } else {
+<span class="nc" id="L163">            throw new BusinessException(&quot;只能取消执行中的任务&quot;);</span>
+        }
+<span class="nc" id="L165">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

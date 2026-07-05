@@ -133,7 +133,11 @@ public class DataSampleServiceImpl implements DataSampleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateDataSampleStatus(Long id, Integer status) {
-        DataSample dataSample = getDataSampleById(id);
+        // 直接查库，避免 getDataSampleById 对 L4 数据先解密再回写导致双重解密
+        DataSample dataSample = dataSampleMapper.selectById(id);
+        if (dataSample == null) {
+            throw new BusinessException("数据样本不存在");
+        }
         dataSample.setStatus(status);
         dataSampleMapper.updateById(dataSample);
         log.info("数据样本状态更新成功, ID: {}, 新状态: {}", id, status);
