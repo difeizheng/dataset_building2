@@ -16,3 +16,8 @@ spring:
     console:
       enabled: true
       path: /h2-console
+
+# 国密 SM4 加密配置 (测试用)
+sm4:
+  encryption:
+    key: MTIzNDU2Nzg5MDEyMzQ1Ng==  # Base64("1234567890123456")

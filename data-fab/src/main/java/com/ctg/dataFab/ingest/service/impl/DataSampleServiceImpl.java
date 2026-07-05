@@ -8,6 +8,7 @@ import com.ctg.dataFab.classification.engine.DataClassificationEngine.Classifica
 import com.ctg.dataFab.common.dto.PageRequest;
 import com.ctg.dataFab.common.enums.DataStatus;
 import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.crypto.Sm4Service;
 import com.ctg.dataFab.ingest.dto.DataSampleCreateRequest;
 import com.ctg.dataFab.ingest.entity.DataSample;
 import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
@@ -31,6 +32,10 @@ public class DataSampleServiceImpl implements DataSampleService {
 
     private final DataSampleMapper dataSampleMapper;
     private final DatasetService datasetService;
+    private final Sm4Service sm4Service;
+
+    /** L4 核心数据分级编码 */
+    private static final int DATA_LEVEL_L4_CORE = 4;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -68,6 +73,17 @@ public class DataSampleServiceImpl implements DataSampleService {
         dataSample.setFileHash(request.getFileHash());
         dataSample.setMetadata(request.getMetadata());
 
+        // L4 核心数据：SM4 加密落盘
+        if (dataLevel == DATA_LEVEL_L4_CORE) {
+            log.info("L4 核心数据，启用 SM4 加密落盘");
+            if (dataSample.getFilePath() != null && !dataSample.getFilePath().isBlank()) {
+                dataSample.setFilePath(sm4Service.encrypt(dataSample.getFilePath()));
+            }
+            if (dataSample.getMetadata() != null && !dataSample.getMetadata().isBlank()) {
+                dataSample.setMetadata(sm4Service.encrypt(dataSample.getMetadata()));
+            }
+        }
+
         dataSampleMapper.insert(dataSample);
 
         // 更新数据集统计信息
@@ -85,6 +101,18 @@ public class DataSampleServiceImpl implements DataSampleService {
         if (dataSample == null) {
             throw new BusinessException("数据样本不存在");
         }
+
+        // L4 核心数据：SM4 解密
+        if (dataSample.getDataLevel() != null && dataSample.getDataLevel() == DATA_LEVEL_L4_CORE) {
+            log.debug("L4 核心数据，启用 SM4 解密");
+            if (dataSample.getFilePath() != null && !dataSample.getFilePath().isBlank()) {
+                dataSample.setFilePath(sm4Service.decrypt(dataSample.getFilePath()));
+            }
+            if (dataSample.getMetadata() != null && !dataSample.getMetadata().isBlank()) {
+                dataSample.setMetadata(sm4Service.decrypt(dataSample.getMetadata()));
+            }
+        }
+
         return dataSample;
     }
 

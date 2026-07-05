@@ -67,3 +67,9 @@ data-classification:
     - L2: 内部数据
     - L3: 敏感数据
     - L4: 机密数据
+
+# 国密 SM4 加密配置 (L4 核心数据落盘/传输加密)
+# 密钥必须由运维通过环境变量注入，禁止硬编码
+sm4:
+  encryption:
+    key: ${SM4_ENCRYPTION_KEY:}
