@@ -91,7 +91,7 @@ public class AiService {
         errorResponse.setAnswer("抱歉，AI服务暂时不可用，请稍后重试。");
         errorResponse.setModel("fallback");
         errorResponse.setTokensUsed(0);
-        errorResponse.setLatencyMs(0);
+        errorResponse.setLatencyMs(0L);
         return CompletableFuture.completedFuture(errorResponse);
     }
 }

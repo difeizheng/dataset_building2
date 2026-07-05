@@ -42,7 +42,7 @@ public class AuthController {
      * 登录第一步：验证用户名和密码
      */
     @PostMapping("/login")
-    public ApiResponse<LoginStep1Response> login(@Valid @RequestBody LoginRequest request) {
+    public ApiResponse<?> login(@Valid @RequestBody LoginRequest request) {
         User user = userService.findByUsername(request.getUsername());
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             return ApiResponse.error(401, "用户名或密码错误");
