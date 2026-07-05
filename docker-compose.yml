@@ -22,7 +22,7 @@ services:
       - ./kb-fab/sql/init.sql:/docker-entrypoint-initdb.d/02-kb-init.sql
       - ./ai-fab/sql/init.sql:/docker-entrypoint-initdb.d/03-ai-init.sql
     healthcheck:
-      test: ["CMD", "echo", "select 1 from dual;", "|", "disql", "SYSDBA/SyDbCli_2024@localhost:5236"]
+      test: ["CMD", "echo", "select 1 from dual;", "|", "disql", "SYSDBA/${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}@localhost:5236"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,12 +60,12 @@ services:
       - DB_HOST=dm8
       - DB_PORT=5236
       - DB_NAME=INTEGRATION_CONTROL
-      - DB_USERNAME=SYSDBA
+      - DB_USERNAME=${DB_USERNAME:-SYSDBA}
       - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
-      - JWT_SECRET=${JWT_SECRET:-your-256-bit-secret-key-for-jwt-signing}
+      - JWT_SECRET=${JWT_SECRET:?must be set}
     ports:
       - "8080:8080"
     depends_on:
@@ -91,8 +91,9 @@ services:
     container_name: ctg-data-fab
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - DB_USERNAME=SYSDBA
+      - DB_USERNAME=${DB_USERNAME:-SYSDBA}
       - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+      - JWT_SECRET=${JWT_SECRET:?must be set}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
@@ -121,8 +122,9 @@ services:
     container_name: ctg-kb-fab
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - DB_USERNAME=SYSDBA
+      - DB_USERNAME=${DB_USERNAME:-SYSDBA}
       - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+      - JWT_SECRET=${JWT_SECRET:?must be set}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
@@ -151,8 +153,10 @@ services:
     container_name: ctg-ai-fab-gateway
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - DB_USERNAME=SYSDBA
+      - DB_USERNAME=${DB_USERNAME:-SYSDBA}
       - DB_PASSWORD=${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}
+      - JWT_SECRET=${JWT_SECRET:?must be set}
+      - AI_PLATFORM_API_KEY=${AI_PLATFORM_API_KEY:?must be set}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
@@ -183,7 +187,7 @@ services:
     container_name: ctg-ai-fab-python
     environment:
       - DEBUG=false
-      - DATABASE_URL=dm+pymysql://SYSDBA:${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}@dm8:5236/AI_FAB
+      - DATABASE_URL=dm+pymysql://${DB_USERNAME:-SYSDBA}:${DM8_SYSDBA_PASSWORD:-SyDbCli_2024}@dm8:5236/AI_FAB
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}

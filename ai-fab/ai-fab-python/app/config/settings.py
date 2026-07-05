@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # 数据库配置
-    DATABASE_URL: str = "mysql+pymysql://root:password@localhost:3306/ai_fab"
+    DATABASE_URL: str = ""  # 必须设置，格式：dm+pymysql://user:pass@host:port/db
 
     # Redis配置
     REDIS_HOST: str = "localhost"
@@ -28,10 +28,10 @@ class Settings(BaseSettings):
 
     # AI中台配置
     AI_PLATFORM_BASE_URL: str = "http://ai-platform.ctg.com"
-    AI_PLATFORM_API_KEY: str = "default-api-key"
+    AI_PLATFORM_API_KEY: str = ""  # 必须设置
 
     # JWT配置
-    JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
+    JWT_SECRET_KEY: str = ""  # 必须设置，生产环境必须使用强随机密钥（至少32字符）
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24小时
 
@@ -52,6 +52,25 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+
+    def model_post_init(self, *args, **kwargs) -> None:
+        """启动时验证必需的安全配置"""
+        missing = []
+        if not self.DATABASE_URL:
+            missing.append("DATABASE_URL")
+        if not self.JWT_SECRET_KEY:
+            missing.append("JWT_SECRET_KEY")
+        if not self.AI_PLATFORM_API_KEY:
+            missing.append("AI_PLATFORM_API_KEY")
+        if missing:
+            raise ValueError(
+                f"缺少必需的环境变量: {', '.join(missing)}。"
+                f"请在 .env 文件或环境变量中设置这些值。"
+            )
+        if len(self.JWT_SECRET_KEY) < 32:
+            raise ValueError(
+                f"JWT_SECRET_KEY 长度必须至少32字符，当前长度: {len(self.JWT_SECRET_KEY)}"
+            )
 
 
 settings = Settings()

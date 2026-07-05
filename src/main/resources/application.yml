@@ -8,6 +8,10 @@ spring:
     name: integration-control
 
   # 数据源配置（达梦 DM8 - 国产化要求）
+  # ⚠️ 部署时必须设置以下环境变量，否则应用启动失败
+  # DB_USERNAME: 数据库用户名
+  # DB_PASSWORD: 数据库密码
+  # JWT_SECRET: JWT签名密钥（至少32字符）
   datasource:
     url: jdbc:dm://${DB_HOST:localhost}:${DB_PORT:5236}/${DB_NAME:INTEGRATION_CONTROL}?compatibleMode=mysql
     username: ${DB_USERNAME:?must be set}

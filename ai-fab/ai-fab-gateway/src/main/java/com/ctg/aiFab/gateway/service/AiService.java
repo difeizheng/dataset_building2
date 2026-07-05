@@ -31,7 +31,7 @@ public class AiService {
     @Value("${ai-platform.base-url:http://ai-platform.ctg.com}")
     private String aiPlatformBaseUrl;
 
-    @Value("${ai-platform.api-key:default-api-key}")
+    @Value("${ai-platform.api-key:?}")
     private String apiKey;
 
     @CircuitBreaker(name = "aiPlatform", fallbackMethod = "chatFallback")
