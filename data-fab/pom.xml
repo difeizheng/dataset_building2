@@ -73,6 +73,20 @@
             <version>${hutool.version}</version>
         </dependency>
 
+        <!-- Hutool Crypto (包含国密 SM4 实现，依赖 BouncyCastle) -->
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-crypto</artifactId>
+            <version>${hutool.version}</version>
+        </dependency>
+
+        <!-- BouncyCastle (国密 SM4 底层依赖) -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.70</version>
+        </dependency>
+
         <!-- JWT (JSON Web Token) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
