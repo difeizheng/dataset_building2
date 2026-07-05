@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataAccessControlService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.access.service</a> &gt; <span class="el_source">DataAccessControlService.java</span></div><h1>DataAccessControlService.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.access.service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ctg.dataFab.access.entity.AuditLog;
+import com.ctg.dataFab.access.entity.DataApproval;
+import com.ctg.dataFab.access.mapper.AuditLogMapper;
+import com.ctg.dataFab.access.mapper.DataApprovalMapper;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine.ClassificationResult;
+import com.ctg.dataFab.common.enums.DataLevel;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.ingest.entity.DataSample;
+import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+
+/**
+ * 数据访问控制服务
+ * 实现 L4 核心数据的下载/打印/外发阻断
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L27">@Slf4j</span>
+@Service
+<span class="fc" id="L29">@RequiredArgsConstructor</span>
+public class DataAccessControlService {
+
+    private final DataSampleMapper dataSampleMapper;
+    private final AuditLogMapper auditLogMapper;
+    private final DataApprovalMapper dataApprovalMapper;
+
+    /**
+     * 检查是否允许下载
+     *
+     * @param sampleId 数据样本ID
+     * @param userId 用户ID
+     * @return 是否允许
+     */
+    public boolean canDownload(Long sampleId, Long userId) {
+<span class="fc" id="L44">        DataSample sample = dataSampleMapper.selectById(sampleId);</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">        if (sample == null) {</span>
+<span class="nc" id="L46">            throw new BusinessException(&quot;数据样本不存在&quot;);</span>
+        }
+
+<span class="fc" id="L49">        DataLevel level = DataLevel.fromCode(sample.getDataLevel());</span>
+
+        // L4 核心数据禁止下载
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (level == DataLevel.L4_CORE) {</span>
+<span class="fc" id="L53">            log.warn(&quot;L4核心数据禁止下载: sampleId={}, userId={}&quot;, sampleId, userId);</span>
+<span class="fc" id="L54">            auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;DOWNLOAD&quot;, &quot;BLOCKED&quot;, &quot;L4核心数据禁止下载&quot;);</span>
+<span class="fc" id="L55">            return false;</span>
+        }
+
+        // L3 敏感数据需要审批
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (level == DataLevel.L3_SENSITIVE) {</span>
+<span class="fc" id="L60">            boolean approved = checkApproval(sampleId, userId, &quot;DOWNLOAD&quot;);</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">            if (!approved) {</span>
+<span class="fc" id="L62">                log.warn(&quot;L3敏感数据下载需要审批: sampleId={}, userId={}&quot;, sampleId, userId);</span>
+<span class="fc" id="L63">                auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;DOWNLOAD&quot;, &quot;PENDING_APPROVAL&quot;, &quot;L3敏感数据下载待审批&quot;);</span>
+<span class="fc" id="L64">                return false;</span>
+            }
+        }
+
+<span class="fc" id="L68">        auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;DOWNLOAD&quot;, &quot;ALLOWED&quot;, &quot;允许下载&quot;);</span>
+<span class="fc" id="L69">        return true;</span>
+    }
+
+    /**
+     * 检查是否允许打印
+     *
+     * @param sampleId 数据样本ID
+     * @param userId 用户ID
+     * @return 是否允许
+     */
+    public boolean canPrint(Long sampleId, Long userId) {
+<span class="fc" id="L80">        DataSample sample = dataSampleMapper.selectById(sampleId);</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        if (sample == null) {</span>
+<span class="nc" id="L82">            throw new BusinessException(&quot;数据样本不存在&quot;);</span>
+        }
+
+<span class="fc" id="L85">        DataLevel level = DataLevel.fromCode(sample.getDataLevel());</span>
+
+        // L4 核心数据禁止打印
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (level == DataLevel.L4_CORE) {</span>
+<span class="fc" id="L89">            log.warn(&quot;L4核心数据禁止打印: sampleId={}, userId={}&quot;, sampleId, userId);</span>
+<span class="fc" id="L90">            auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;PRINT&quot;, &quot;BLOCKED&quot;, &quot;L4核心数据禁止打印&quot;);</span>
+<span class="fc" id="L91">            return false;</span>
+        }
+
+<span class="fc" id="L94">        auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;PRINT&quot;, &quot;ALLOWED&quot;, &quot;允许打印&quot;);</span>
+<span class="fc" id="L95">        return true;</span>
+    }
+
+    /**
+     * 检查是否允许外发
+     *
+     * @param sampleId 数据样本ID
+     * @param userId 用户ID
+     * @return 是否允许
+     */
+    public boolean canExport(Long sampleId, Long userId) {
+<span class="fc" id="L106">        DataSample sample = dataSampleMapper.selectById(sampleId);</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">        if (sample == null) {</span>
+<span class="nc" id="L108">            throw new BusinessException(&quot;数据样本不存在&quot;);</span>
+        }
+
+<span class="fc" id="L111">        DataLevel level = DataLevel.fromCode(sample.getDataLevel());</span>
+
+        // L4 核心数据禁止外发
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">        if (level == DataLevel.L4_CORE) {</span>
+<span class="fc" id="L115">            log.warn(&quot;L4核心数据禁止外发: sampleId={}, userId={}&quot;, sampleId, userId);</span>
+<span class="fc" id="L116">            auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;EXPORT&quot;, &quot;BLOCKED&quot;, &quot;L4核心数据禁止外发&quot;);</span>
+<span class="fc" id="L117">            return false;</span>
+        }
+
+        // L3 敏感数据需要审批
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (level == DataLevel.L3_SENSITIVE) {</span>
+<span class="nc" id="L122">            boolean approved = checkApproval(sampleId, userId, &quot;EXPORT&quot;);</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            if (!approved) {</span>
+<span class="nc" id="L124">                log.warn(&quot;L3敏感数据外发需要审批: sampleId={}, userId={}&quot;, sampleId, userId);</span>
+<span class="nc" id="L125">                auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;EXPORT&quot;, &quot;PENDING_APPROVAL&quot;, &quot;L3敏感数据外发待审批&quot;);</span>
+<span class="nc" id="L126">                return false;</span>
+            }
+        }
+
+<span class="nc" id="L130">        auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;EXPORT&quot;, &quot;ALLOWED&quot;, &quot;允许外发&quot;);</span>
+<span class="nc" id="L131">        return true;</span>
+    }
+
+    /**
+     * 检查是否允许在线查看
+     *
+     * @param sampleId 数据样本ID
+     * @param userId 用户ID
+     * @return 是否允许
+     */
+    public boolean canView(Long sampleId, Long userId) {
+<span class="fc" id="L142">        DataSample sample = dataSampleMapper.selectById(sampleId);</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        if (sample == null) {</span>
+<span class="nc" id="L144">            throw new BusinessException(&quot;数据样本不存在&quot;);</span>
+        }
+
+<span class="fc" id="L147">        DataLevel level = DataLevel.fromCode(sample.getDataLevel());</span>
+
+        // L4 核心数据仅允许在线查看（带水印）
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">        if (level == DataLevel.L4_CORE) {</span>
+<span class="fc" id="L151">            log.info(&quot;L4核心数据允许在线查看（带水印）: sampleId={}, userId={}&quot;, sampleId, userId);</span>
+<span class="fc" id="L152">            auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;VIEW&quot;, &quot;ALLOWED&quot;, &quot;L4核心数据允许在线查看（带水印）&quot;);</span>
+<span class="fc" id="L153">            return true;</span>
+        }
+
+<span class="nc" id="L156">        auditAccess(sampleId, &quot;SAMPLE&quot;, userId, &quot;VIEW&quot;, &quot;ALLOWED&quot;, &quot;允许查看&quot;);</span>
+<span class="nc" id="L157">        return true;</span>
+    }
+
+    /**
+     * 检查是否需要水印
+     *
+     * @param sampleId 数据样本ID
+     * @return 是否需要水印
+     */
+    public boolean requiresWatermark(Long sampleId) {
+<span class="fc" id="L167">        DataSample sample = dataSampleMapper.selectById(sampleId);</span>
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        if (sample == null) {</span>
+<span class="nc" id="L169">            throw new BusinessException(&quot;数据样本不存在&quot;);</span>
+        }
+
+<span class="fc" id="L172">        DataLevel level = DataLevel.fromCode(sample.getDataLevel());</span>
+<span class="fc bfc" id="L173" title="All 4 branches covered.">        return level == DataLevel.L4_CORE || level == DataLevel.L3_SENSITIVE;</span>
+    }
+
+    /**
+     * 检查审批状态
+     */
+    private boolean checkApproval(Long sampleId, Long userId, String action) {
+        // 查询有效的审批记录
+<span class="fc" id="L181">        LambdaQueryWrapper&lt;DataApproval&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L182">        wrapper.eq(DataApproval::getResourceId, sampleId)</span>
+<span class="fc" id="L183">               .eq(DataApproval::getResourceType, &quot;SAMPLE&quot;)</span>
+<span class="fc" id="L184">               .eq(DataApproval::getAction, action)</span>
+<span class="fc" id="L185">               .eq(DataApproval::getApplicantId, userId)</span>
+<span class="fc" id="L186">               .eq(DataApproval::getStatus, 1) // 已通过</span>
+<span class="fc" id="L187">               .and(w -&gt; w.isNull(DataApproval::getExpireTime)</span>
+<span class="fc" id="L188">                         .or()</span>
+<span class="fc" id="L189">                         .gt(DataApproval::getExpireTime, LocalDateTime.now()));</span>
+
+<span class="fc" id="L191">        Long count = dataApprovalMapper.selectCount(wrapper);</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">        return count &gt; 0;</span>
+    }
+
+    /**
+     * 审计访问记录 (WORM - Write Once Read Many)
+     */
+    public void auditAccess(Long resourceId, String resourceType, Long userId, String action, String result, String description) {
+<span class="fc" id="L199">        AuditLog auditLog = new AuditLog();</span>
+<span class="fc" id="L200">        auditLog.setResourceId(resourceId);</span>
+<span class="fc" id="L201">        auditLog.setResourceType(resourceType);</span>
+<span class="fc" id="L202">        auditLog.setUserId(userId);</span>
+<span class="fc" id="L203">        auditLog.setAction(action);</span>
+<span class="fc" id="L204">        auditLog.setResult(result);</span>
+<span class="fc" id="L205">        auditLog.setDescription(description);</span>
+
+<span class="fc" id="L207">        auditLogMapper.insert(auditLog);</span>
+<span class="fc" id="L208">        log.info(&quot;审计日志: resourceId={}, action={}, result={}&quot;, resourceId, action, result);</span>
+<span class="fc" id="L209">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

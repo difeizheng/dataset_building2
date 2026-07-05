@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QaTask.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.qa.entity</a> &gt; <span class="el_source">QaTask.java</span></div><h1>QaTask.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.qa.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+import java.time.LocalDateTime;
+
+/**
+ * 质量评估任务实体
+ * 对应表：t_qa_task
+ * 实现 M2 四模态质量阈值检测
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="pc bpc" id="L15" title="88 of 142 branches missed.">@Data</span>
+@TableName(&quot;t_qa_task&quot;)
+public class QaTask {
+
+    @TableId(type = IdType.ASSIGN_ID)
+<span class="fc" id="L20">    private Long id;</span>
+
+    /**
+     * 数据集ID
+     */
+<span class="fc" id="L25">    private Long datasetId;</span>
+
+    /**
+     * 数据模态：1-文本，2-图像，3-音频，4-视频
+     */
+<span class="fc" id="L30">    private Integer modality;</span>
+
+    /**
+     * 批次号
+     */
+<span class="fc" id="L35">    private String batch;</span>
+
+    /**
+     * 任务状态：0-待执行，1-执行中，2-已通过，3-未通过，4-已取消
+     */
+<span class="fc" id="L40">    private Integer status;</span>
+
+    /**
+     * 评估指标（JSON格式）
+     */
+<span class="fc" id="L45">    private String metrics;</span>
+
+    /**
+     * 是否通过：0-否，1-是
+     */
+<span class="fc" id="L50">    private Integer passed;</span>
+
+    /**
+     * 门禁检查结果（JSON数组）
+     */
+<span class="fc" id="L55">    private String gates;</span>
+
+    /**
+     * 三审三校状态：0-自动预审，1-人工复审，2-专家终审，3-发布
+     */
+<span class="fc" id="L60">    private Integer reviewStage;</span>
+
+    /**
+     * 评审意见
+     */
+<span class="fc" id="L65">    private String reviewComment;</span>
+
+    /**
+     * 评审人
+     */
+<span class="fc" id="L70">    private String reviewer;</span>
+
+    /**
+     * 评审时间
+     */
+<span class="fc" id="L75">    private LocalDateTime reviewTime;</span>
+
+    /**
+     * 创建人
+     */
+<span class="fc" id="L80">    private String createBy;</span>
+
+    /**
+     * 创建时间
+     */
+    @TableField(fill = FieldFill.INSERT)
+<span class="fc" id="L86">    private LocalDateTime createTime;</span>
+
+    /**
+     * 更新人
+     */
+<span class="fc" id="L91">    private String updateBy;</span>
+
+    /**
+     * 更新时间
+     */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+<span class="fc" id="L97">    private LocalDateTime updateTime;</span>
+
+    /**
+     * 逻辑删除
+     */
+    @TableLogic
+<span class="fc" id="L103">    private Integer deleted;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

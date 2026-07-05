@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IaaEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.label.engine</a> &gt; <span class="el_source">IaaEngine.java</span></div><h1>IaaEngine.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.label.engine;
+
+/**
+ * IAA (Inter-Annotator Agreement) 计算引擎
+ * 实现 Cohen's Kappa 和 Fleiss' Kappa 算法
+ *
+ * M3 标注一致性要求：
+ * - Kappa &gt;= 0.85 → 双标签采纳
+ * - 0.70 &lt;= Kappa &lt; 0.85 → 进入仲裁池
+ * - Kappa &lt; 0.70 → 自动触发重标
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc" id="L15">public class IaaEngine {</span>
+
+    /** 采纳阈值 */
+    public static final double THRESHOLD_ACCEPT = 0.85;
+    /** 仲裁阈值 */
+    public static final double THRESHOLD_ARBITRATE = 0.70;
+
+    /**
+     * 计算 Cohen's Kappa（两名标注员）
+     *
+     * @param labels1 标注员1的标签数组
+     * @param labels2 标注员2的标签数组
+     * @return Kappa值 [-1, 1]
+     */
+    public static double calculateCohenKappa(String[] labels1, String[] labels2) {
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        if (labels1.length != labels2.length) {</span>
+<span class="fc" id="L31">            throw new IllegalArgumentException(&quot;两组标注数量不一致&quot;);</span>
+        }
+
+<span class="fc" id="L34">        int n = labels1.length;</span>
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (n == 0) {</span>
+<span class="fc" id="L36">            return 0.0;</span>
+        }
+
+        // 计算观察一致性 Po
+<span class="fc" id="L40">        long agreements = 0;</span>
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">            if (labels1[i].equals(labels2[i])) {</span>
+<span class="fc" id="L43">                agreements++;</span>
+            }
+        }
+<span class="fc" id="L46">        double po = (double) agreements / n;</span>
+
+        // 计算期望一致性 Pe
+        // 统计每个类别的频次
+<span class="fc" id="L50">        java.util.Map&lt;String, Integer&gt; count1 = new java.util.HashMap&lt;&gt;();</span>
+<span class="fc" id="L51">        java.util.Map&lt;String, Integer&gt; count2 = new java.util.HashMap&lt;&gt;();</span>
+
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        for (String label : labels1) {</span>
+<span class="fc" id="L54">            count1.merge(label, 1, Integer::sum);</span>
+        }
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        for (String label : labels2) {</span>
+<span class="fc" id="L57">            count2.merge(label, 1, Integer::sum);</span>
+        }
+
+<span class="fc" id="L60">        double pe = 0.0;</span>
+<span class="fc" id="L61">        java.util.Set&lt;String&gt; allLabels = new java.util.HashSet&lt;&gt;(count1.keySet());</span>
+<span class="fc" id="L62">        allLabels.addAll(count2.keySet());</span>
+
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        for (String label : allLabels) {</span>
+<span class="fc" id="L65">            double p1 = (double) count1.getOrDefault(label, 0) / n;</span>
+<span class="fc" id="L66">            double p2 = (double) count2.getOrDefault(label, 0) / n;</span>
+<span class="fc" id="L67">            pe += p1 * p2;</span>
+<span class="fc" id="L68">        }</span>
+
+        // Kappa = (Po - Pe) / (1 - Pe)
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">        if (pe == 1.0) {</span>
+<span class="nc" id="L72">            return 1.0;</span>
+        }
+<span class="fc" id="L74">        return (po - pe) / (1.0 - pe);</span>
+    }
+
+    /**
+     * 计算 Fleiss' Kappa（多名标注员）
+     *
+     * @param annotations 每个样本的标注矩阵 [样本数][标注员数]
+     * @param categories 类别数
+     * @return Kappa值
+     */
+    public static double calculateFleissKappa(int[][] annotations, int categories) {
+<span class="fc" id="L85">        int n = annotations.length;    // 样本数</span>
+<span class="fc" id="L86">        int k = categories;            // 类别数</span>
+<span class="fc" id="L87">        int m = annotations[0].length;  // 标注员数</span>
+
+<span class="pc bpc" id="L89" title="3 of 6 branches missed.">        if (n == 0 || k == 0 || m == 0) {</span>
+<span class="nc" id="L90">            return 0.0;</span>
+        }
+
+        // 计算每个样本的一致性 Pi
+<span class="fc" id="L94">        double[] piValues = new double[n];</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L96">            double sum = 0.0;</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">            for (int j = 0; j &lt; k; j++) {</span>
+<span class="fc" id="L98">                sum += annotations[i][j] * annotations[i][j];</span>
+            }
+<span class="fc" id="L100">            piValues[i] = (sum - m) / (m * (m - 1));</span>
+        }
+
+        // 平均一致性 P_bar
+<span class="fc" id="L104">        double pBar = 0.0;</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        for (double pi : piValues) {</span>
+<span class="fc" id="L106">            pBar += pi;</span>
+        }
+<span class="fc" id="L108">        pBar /= n;</span>
+
+        // 计算每个类别的边际概率 Pj
+<span class="fc" id="L111">        double[] pjValues = new double[k];</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        for (int j = 0; j &lt; k; j++) {</span>
+<span class="fc" id="L113">            double sum = 0.0;</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">            for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L115">                sum += annotations[i][j];</span>
+            }
+<span class="fc" id="L117">            pjValues[j] = sum / (n * m);</span>
+        }
+
+        // 期望一致性 Pe
+<span class="fc" id="L121">        double pe = 0.0;</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        for (double pj : pjValues) {</span>
+<span class="fc" id="L123">            pe += pj * pj;</span>
+        }
+
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">        if (pe == 1.0) {</span>
+<span class="nc" id="L127">            return 1.0;</span>
+        }
+
+<span class="fc" id="L130">        return (pBar - pe) / (1.0 - pe);</span>
+    }
+
+    /**
+     * 判断标注结果处理方式
+     *
+     * @param kappa Kappa值
+     * @return ACCEPT / ARBITRATE / RELABEL
+     */
+    public static IaaDecision decide(double kappa) {
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        if (kappa &gt;= THRESHOLD_ACCEPT) {</span>
+<span class="fc" id="L141">            return IaaDecision.ACCEPT;</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        } else if (kappa &gt;= THRESHOLD_ARBITRATE) {</span>
+<span class="fc" id="L143">            return IaaDecision.ARBITRATE;</span>
+        } else {
+<span class="fc" id="L145">            return IaaDecision.RELABEL;</span>
+        }
+    }
+
+    /**
+     * IAA决策枚举
+     */
+<span class="fc" id="L152">    public enum IaaDecision {</span>
+        /** 采纳 */
+<span class="fc" id="L154">        ACCEPT,</span>
+        /** 进入仲裁 */
+<span class="fc" id="L156">        ARBITRATE,</span>
+        /** 触发重标 */
+<span class="fc" id="L158">        RELABEL</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

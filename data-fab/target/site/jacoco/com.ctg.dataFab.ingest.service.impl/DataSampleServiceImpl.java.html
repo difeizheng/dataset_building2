@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataSampleServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.ingest.service.impl</a> &gt; <span class="el_source">DataSampleServiceImpl.java</span></div><h1>DataSampleServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.ingest.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine.ClassificationContext;
+import com.ctg.dataFab.classification.engine.DataClassificationEngine.ClassificationResult;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.enums.DataStatus;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.ingest.dto.DataSampleCreateRequest;
+import com.ctg.dataFab.ingest.entity.DataSample;
+import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
+import com.ctg.dataFab.ingest.service.DataSampleService;
+import com.ctg.dataFab.ingest.service.DatasetService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 数据样本服务实现
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L27">@Slf4j</span>
+@Service
+<span class="fc" id="L29">@RequiredArgsConstructor</span>
+public class DataSampleServiceImpl implements DataSampleService {
+
+    private final DataSampleMapper dataSampleMapper;
+    private final DatasetService datasetService;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createDataSample(DataSampleCreateRequest request) {
+<span class="fc" id="L38">        log.info(&quot;创建数据样本: {}&quot;, request.getName());</span>
+
+<span class="fc" id="L40">        DataSample dataSample = new DataSample();</span>
+<span class="fc" id="L41">        dataSample.setName(request.getName());</span>
+<span class="fc" id="L42">        dataSample.setModality(request.getModality());</span>
+
+        // C1: 自动分级 - 如果未指定分级，使用分级引擎自动判定
+<span class="fc" id="L45">        Integer dataLevel = request.getDataLevel();</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (dataLevel == null) {</span>
+<span class="fc" id="L47">            ClassificationContext context = new ClassificationContext(</span>
+<span class="fc" id="L48">                    request.getName(),</span>
+                    null,
+<span class="fc" id="L50">                    request.getMimeType()</span>
+            );
+<span class="fc" id="L52">            context.setTags(request.getMetadata());</span>
+<span class="fc" id="L53">            context.setMetadata(request.getMetadata());</span>
+
+<span class="fc" id="L55">            ClassificationResult classificationResult = DataClassificationEngine.classify(context);</span>
+<span class="fc" id="L56">            dataLevel = classificationResult.getLevel().getCode();</span>
+<span class="fc" id="L57">            log.info(&quot;自动分级结果: level={}, reason={}&quot;,</span>
+<span class="fc" id="L58">                    classificationResult.getLevel().getName(),</span>
+<span class="fc" id="L59">                    classificationResult.getReason());</span>
+        }
+<span class="fc" id="L61">        dataSample.setDataLevel(dataLevel);</span>
+
+<span class="fc" id="L63">        dataSample.setStatus(DataStatus.NEW.getCode());</span>
+<span class="fc" id="L64">        dataSample.setSource(request.getSource());</span>
+<span class="fc" id="L65">        dataSample.setFilePath(request.getFilePath());</span>
+<span class="fc" id="L66">        dataSample.setFileSize(request.getFileSize());</span>
+<span class="fc" id="L67">        dataSample.setMimeType(request.getMimeType());</span>
+<span class="fc" id="L68">        dataSample.setFileHash(request.getFileHash());</span>
+<span class="fc" id="L69">        dataSample.setMetadata(request.getMetadata());</span>
+
+<span class="fc" id="L71">        dataSampleMapper.insert(dataSample);</span>
+
+        // 更新数据集统计信息
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if (dataSample.getDatasetId() != null) {</span>
+<span class="nc" id="L75">            datasetService.updateDatasetStats(dataSample.getDatasetId());</span>
+        }
+
+<span class="fc" id="L78">        log.info(&quot;数据样本创建成功, ID: {}, 分级: L{}&quot;, dataSample.getId(), dataLevel);</span>
+<span class="fc" id="L79">        return dataSample.getId();</span>
+    }
+
+    @Override
+    public DataSample getDataSampleById(Long id) {
+<span class="fc" id="L84">        DataSample dataSample = dataSampleMapper.selectById(id);</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (dataSample == null) {</span>
+<span class="fc" id="L86">            throw new BusinessException(&quot;数据样本不存在&quot;);</span>
+        }
+<span class="fc" id="L88">        return dataSample;</span>
+    }
+
+    @Override
+    public Page&lt;DataSample&gt; listDataSamples(Long datasetId, Integer modality, Integer dataLevel,
+                                            Integer status, PageRequest pageRequest) {
+<span class="fc" id="L94">        LambdaQueryWrapper&lt;DataSample&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc bfc" id="L95" title="All 4 branches covered.">        wrapper.eq(datasetId != null, DataSample::getDatasetId, datasetId)</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">               .eq(modality != null, DataSample::getModality, modality)</span>
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">               .eq(dataLevel != null, DataSample::getDataLevel, dataLevel)</span>
+<span class="fc" id="L98">               .eq(status != null, DataSample::getStatus, status)</span>
+<span class="fc" id="L99">               .orderByDesc(DataSample::getCreateTime);</span>
+
+<span class="fc" id="L101">        Page&lt;DataSample&gt; page = new Page&lt;&gt;(pageRequest.getPageNum(), pageRequest.getPageSize());</span>
+<span class="fc" id="L102">        return dataSampleMapper.selectPage(page, wrapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateDataSampleStatus(Long id, Integer status) {
+<span class="fc" id="L108">        DataSample dataSample = getDataSampleById(id);</span>
+<span class="fc" id="L109">        dataSample.setStatus(status);</span>
+<span class="fc" id="L110">        dataSampleMapper.updateById(dataSample);</span>
+<span class="fc" id="L111">        log.info(&quot;数据样本状态更新成功, ID: {}, 新状态: {}&quot;, id, status);</span>
+<span class="fc" id="L112">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteDataSample(Long id) {
+<span class="fc" id="L117">        DataSample dataSample = getDataSampleById(id);</span>
+<span class="fc" id="L118">        dataSampleMapper.deleteById(id);</span>
+<span class="fc" id="L119">        log.info(&quot;数据样本删除成功, ID: {}&quot;, id);</span>
+
+        // 更新数据集统计信息
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        if (dataSample.getDatasetId() != null) {</span>
+<span class="fc" id="L123">            datasetService.updateDatasetStats(dataSample.getDatasetId());</span>
+        }
+<span class="fc" id="L125">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

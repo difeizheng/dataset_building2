@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QaServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.qa.service.impl</a> &gt; <span class="el_source">QaServiceImpl.java</span></div><h1>QaServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.qa.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.enums.DataModality;
+import com.ctg.dataFab.common.enums.DataStatus;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.ingest.entity.Dataset;
+import com.ctg.dataFab.ingest.mapper.DatasetMapper;
+import com.ctg.dataFab.ingest.service.DatasetService;
+import com.ctg.dataFab.qa.dto.EvaluateRequest;
+import com.ctg.dataFab.qa.dto.EvaluateResponse;
+import com.ctg.dataFab.qa.engine.QualityThresholdEngine;
+import com.ctg.dataFab.qa.entity.QaTask;
+import com.ctg.dataFab.qa.mapper.QaTaskMapper;
+import com.ctg.dataFab.qa.service.QaService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * 质量评估服务实现
+ * 实现 M2 四模态质量阈值检测 + 三审三校流程
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L35">@Slf4j</span>
+@Service
+<span class="fc" id="L37">@RequiredArgsConstructor</span>
+public class QaServiceImpl implements QaService {
+
+    private final QaTaskMapper qaTaskMapper;
+    private final DatasetMapper datasetMapper;
+    private final DatasetService datasetService;
+    private final ObjectMapper objectMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EvaluateResponse evaluate(EvaluateRequest request) {
+<span class="fc" id="L48">        log.info(&quot;开始质量评估: 数据集ID={}, 模态={}&quot;, request.getDatasetId(), request.getModality());</span>
+
+        // 创建评估任务
+<span class="fc" id="L51">        QaTask task = new QaTask();</span>
+<span class="fc" id="L52">        task.setDatasetId(request.getDatasetId());</span>
+<span class="fc" id="L53">        task.setModality(request.getModality());</span>
+<span class="fc" id="L54">        task.setBatch(request.getBatch());</span>
+<span class="fc" id="L55">        task.setStatus(1); // 执行中</span>
+<span class="fc" id="L56">        task.setReviewStage(0); // 自动预审</span>
+
+<span class="fc" id="L58">        qaTaskMapper.insert(task);</span>
+
+        // 执行质量评估
+<span class="fc" id="L61">        DataModality modality = DataModality.fromCode(request.getModality());</span>
+<span class="fc" id="L62">        QualityThresholdEngine.QualityResult result =</span>
+<span class="fc" id="L63">                QualityThresholdEngine.evaluate(modality, request.getMetrics());</span>
+
+        // 更新任务结果
+        try {
+<span class="fc" id="L67">            task.setMetrics(objectMapper.writeValueAsString(result.getMetrics()));</span>
+<span class="fc" id="L68">            task.setGates(objectMapper.writeValueAsString(result.getGates()));</span>
+<span class="nc" id="L69">        } catch (Exception e) {</span>
+<span class="nc" id="L70">            log.error(&quot;序列化评估结果失败&quot;, e);</span>
+<span class="fc" id="L71">        }</span>
+
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        task.setPassed(result.isPassed() ? 1 : 0);</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        task.setStatus(result.isPassed() ? 2 : 3); // 通过/未通过</span>
+<span class="fc" id="L75">        qaTaskMapper.updateById(task);</span>
+
+        // H1修复: evaluate只落自动结果 + reviewStage=0，不直接改数据集状态
+        // 数据集置QA_PASS只能在expertReview(stage=2)通过后
+
+        // 构建响应
+<span class="fc" id="L81">        EvaluateResponse response = new EvaluateResponse();</span>
+<span class="fc" id="L82">        response.setTaskId(task.getId());</span>
+<span class="fc" id="L83">        response.setPassed(result.isPassed());</span>
+<span class="fc" id="L84">        response.setMetrics(result.getMetrics());</span>
+<span class="fc" id="L85">        response.setGates(result.getGates().stream().map(gate -&gt; {</span>
+<span class="fc" id="L86">            EvaluateResponse.GateInfo info = new EvaluateResponse.GateInfo();</span>
+<span class="fc" id="L87">            info.setName(gate.getName());</span>
+<span class="fc" id="L88">            info.setThreshold(gate.getThreshold());</span>
+<span class="fc" id="L89">            info.setActual(gate.getActual());</span>
+<span class="fc" id="L90">            info.setPassed(gate.isPassed());</span>
+<span class="fc" id="L91">            info.setOperator(gate.getOperator());</span>
+<span class="fc" id="L92">            info.setMissing(gate.isMissing());</span>
+<span class="fc" id="L93">            return info;</span>
+<span class="fc" id="L94">        }).collect(Collectors.toList()));</span>
+
+<span class="fc" id="L96">        log.info(&quot;质量评估完成: 任务ID={}, 通过={}, 等待人工复审&quot;, task.getId(), result.isPassed());</span>
+<span class="fc" id="L97">        return response;</span>
+    }
+
+    @Override
+    public QaTask getTaskById(Long id) {
+<span class="fc" id="L102">        QaTask task = qaTaskMapper.selectById(id);</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (task == null) {</span>
+<span class="fc" id="L104">            throw new BusinessException(&quot;评估任务不存在&quot;);</span>
+        }
+<span class="fc" id="L106">        return task;</span>
+    }
+
+    @Override
+    public Page&lt;QaTask&gt; listTasks(Long datasetId, Integer status, PageRequest pageRequest) {
+<span class="fc" id="L111">        LambdaQueryWrapper&lt;QaTask&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc bfc" id="L112" title="All 4 branches covered.">        wrapper.eq(datasetId != null, QaTask::getDatasetId, datasetId)</span>
+<span class="fc" id="L113">               .eq(status != null, QaTask::getStatus, status)</span>
+<span class="fc" id="L114">               .orderByDesc(QaTask::getCreateTime);</span>
+
+<span class="fc" id="L116">        Page&lt;QaTask&gt; page = new Page&lt;&gt;(pageRequest.getPageNum(), pageRequest.getPageSize());</span>
+<span class="fc" id="L117">        return qaTaskMapper.selectPage(page, wrapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void manualReview(Long taskId, boolean passed, String comment, String reviewer) {
+<span class="fc" id="L123">        QaTask task = getTaskById(taskId);</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        if (task.getReviewStage() != 0) {</span>
+<span class="fc" id="L125">            throw new BusinessException(&quot;任务不在自动预审阶段&quot;);</span>
+        }
+
+<span class="fc" id="L128">        task.setReviewStage(1); // 人工复审</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        task.setPassed(passed ? 1 : 0);</span>
+<span class="fc" id="L130">        task.setReviewComment(comment);</span>
+<span class="fc" id="L131">        task.setReviewer(reviewer);</span>
+<span class="fc" id="L132">        task.setReviewTime(LocalDateTime.now());</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        task.setStatus(passed ? 2 : 3);</span>
+
+<span class="fc" id="L135">        qaTaskMapper.updateById(task);</span>
+<span class="fc" id="L136">        log.info(&quot;人工复审完成: 任务ID={}, 通过={}&quot;, taskId, passed);</span>
+<span class="fc" id="L137">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void expertReview(Long taskId, boolean passed, String comment, String reviewer) {
+<span class="fc" id="L142">        QaTask task = getTaskById(taskId);</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        if (task.getReviewStage() != 1) {</span>
+<span class="fc" id="L144">            throw new BusinessException(&quot;任务不在人工复审阶段&quot;);</span>
+        }
+
+<span class="fc" id="L147">        task.setReviewStage(2); // 专家终审</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        task.setPassed(passed ? 1 : 0);</span>
+<span class="fc" id="L149">        task.setReviewComment(comment);</span>
+<span class="fc" id="L150">        task.setReviewer(reviewer);</span>
+<span class="fc" id="L151">        task.setReviewTime(LocalDateTime.now());</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        task.setStatus(passed ? 2 : 3);</span>
+
+<span class="fc" id="L154">        qaTaskMapper.updateById(task);</span>
+<span class="fc" id="L155">        log.info(&quot;专家终审完成: 任务ID={}, 通过={}&quot;, taskId, passed);</span>
+<span class="fc" id="L156">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void publishDataset(Long taskId) {
+<span class="fc" id="L161">        QaTask task = getTaskById(taskId);</span>
+<span class="fc bfc" id="L162" title="All 4 branches covered.">        if (task.getReviewStage() != 2 || task.getPassed() != 1) {</span>
+<span class="fc" id="L163">            throw new BusinessException(&quot;任务未通过专家终审，无法发布&quot;);</span>
+        }
+
+<span class="fc" id="L166">        task.setReviewStage(3); // 发布</span>
+<span class="fc" id="L167">        qaTaskMapper.updateById(task);</span>
+
+        // 更新数据集状态为已发布
+<span class="fc" id="L170">        Dataset dataset = datasetService.getDatasetById(task.getDatasetId());</span>
+<span class="fc" id="L171">        dataset.setStatus(DataStatus.PUBLISHED.getCode());</span>
+<span class="fc" id="L172">        datasetMapper.updateById(dataset);</span>
+
+<span class="fc" id="L174">        log.info(&quot;数据集发布成功: 任务ID={}, 数据集ID={}&quot;, taskId, task.getDatasetId());</span>
+<span class="fc" id="L175">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

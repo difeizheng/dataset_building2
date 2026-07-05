@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatasetServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.ingest.service.impl</a> &gt; <span class="el_source">DatasetServiceImpl.java</span></div><h1>DatasetServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.ingest.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.enums.DataStatus;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.ingest.dto.DatasetCreateRequest;
+import com.ctg.dataFab.ingest.entity.DataSample;
+import com.ctg.dataFab.ingest.entity.Dataset;
+import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
+import com.ctg.dataFab.ingest.mapper.DatasetMapper;
+import com.ctg.dataFab.ingest.service.DatasetService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 数据集服务实现
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L25">@Slf4j</span>
+@Service
+<span class="fc" id="L27">@RequiredArgsConstructor</span>
+public class DatasetServiceImpl implements DatasetService {
+
+    private final DatasetMapper datasetMapper;
+    private final DataSampleMapper dataSampleMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createDataset(DatasetCreateRequest request) {
+<span class="fc" id="L36">        log.info(&quot;创建数据集: {}&quot;, request.getName());</span>
+
+<span class="fc" id="L38">        Dataset dataset = new Dataset();</span>
+<span class="fc" id="L39">        dataset.setName(request.getName());</span>
+<span class="fc" id="L40">        dataset.setDescription(request.getDescription());</span>
+<span class="fc" id="L41">        dataset.setModality(request.getModality());</span>
+<span class="fc" id="L42">        dataset.setDataLevel(request.getDataLevel());</span>
+<span class="fc" id="L43">        dataset.setStatus(DataStatus.NEW.getCode());</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        dataset.setVersion(request.getVersion() != null ? request.getVersion() : &quot;1.0.0&quot;);</span>
+<span class="fc" id="L45">        dataset.setSampleCount(0);</span>
+<span class="fc" id="L46">        dataset.setTotalSize(0L);</span>
+<span class="fc" id="L47">        dataset.setTags(request.getTags());</span>
+
+<span class="fc" id="L49">        datasetMapper.insert(dataset);</span>
+
+<span class="fc" id="L51">        log.info(&quot;数据集创建成功, ID: {}&quot;, dataset.getId());</span>
+<span class="fc" id="L52">        return dataset.getId();</span>
+    }
+
+    @Override
+    public Dataset getDatasetById(Long id) {
+<span class="fc" id="L57">        Dataset dataset = datasetMapper.selectById(id);</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (dataset == null) {</span>
+<span class="fc" id="L59">            throw new BusinessException(&quot;数据集不存在&quot;);</span>
+        }
+<span class="fc" id="L61">        return dataset;</span>
+    }
+
+    @Override
+    public Page&lt;Dataset&gt; listDatasets(Integer modality, Integer dataLevel, Integer status, PageRequest pageRequest) {
+<span class="fc" id="L66">        LambdaQueryWrapper&lt;Dataset&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="pc bpc" id="L67" title="1 of 4 branches missed.">        wrapper.eq(modality != null, Dataset::getModality, modality)</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">               .eq(dataLevel != null, Dataset::getDataLevel, dataLevel)</span>
+<span class="fc" id="L69">               .eq(status != null, Dataset::getStatus, status)</span>
+<span class="fc" id="L70">               .orderByDesc(Dataset::getCreateTime);</span>
+
+<span class="fc" id="L72">        Page&lt;Dataset&gt; page = new Page&lt;&gt;(pageRequest.getPageNum(), pageRequest.getPageSize());</span>
+<span class="fc" id="L73">        return datasetMapper.selectPage(page, wrapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateDataset(Dataset dataset) {
+<span class="fc" id="L79">        datasetMapper.updateById(dataset);</span>
+<span class="fc" id="L80">        log.info(&quot;数据集更新成功, ID: {}&quot;, dataset.getId());</span>
+<span class="fc" id="L81">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteDataset(Long id) {
+<span class="fc" id="L86">        Dataset dataset = getDatasetById(id);</span>
+<span class="fc" id="L87">        datasetMapper.deleteById(id);</span>
+<span class="fc" id="L88">        log.info(&quot;数据集删除成功, ID: {}&quot;, id);</span>
+<span class="fc" id="L89">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateDatasetStats(Long datasetId) {
+<span class="fc" id="L94">        Dataset dataset = getDatasetById(datasetId);</span>
+
+        // 统计样本数量
+<span class="fc" id="L97">        LambdaQueryWrapper&lt;DataSample&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L98">        wrapper.eq(DataSample::getDatasetId, datasetId);</span>
+<span class="fc" id="L99">        Long count = dataSampleMapper.selectCount(wrapper);</span>
+
+        // M-5: 使用SQL SUM()聚合计算总大小，避免全量加载
+<span class="fc" id="L102">        Long totalSize = dataSampleMapper.sumFileSizeByDatasetId(datasetId);</span>
+
+<span class="fc" id="L104">        dataset.setSampleCount(count.intValue());</span>
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        dataset.setTotalSize(totalSize != null ? totalSize : 0L);</span>
+<span class="fc" id="L106">        datasetMapper.updateById(dataset);</span>
+
+<span class="fc" id="L108">        log.info(&quot;数据集统计信息更新成功, ID: {}, 样本数: {}, 总大小: {}&quot;, datasetId, count, totalSize);</span>
+<span class="fc" id="L109">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

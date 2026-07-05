@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataModality.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.common.enums</a> &gt; <span class="el_source">DataModality.java</span></div><h1>DataModality.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.common.enums;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+/**
+ * 数据模态枚举
+ * 支持文本/图像/音频/视频四模态
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L13">@Getter</span>
+<span class="fc" id="L14">@AllArgsConstructor</span>
+public enum DataModality {
+
+<span class="fc" id="L17">    TEXT(1, &quot;文本&quot;),</span>
+<span class="fc" id="L18">    IMAGE(2, &quot;图像&quot;),</span>
+<span class="fc" id="L19">    AUDIO(3, &quot;音频&quot;),</span>
+<span class="fc" id="L20">    VIDEO(4, &quot;视频&quot;);</span>
+
+<span class="nc" id="L22">    private final int code;</span>
+<span class="nc" id="L23">    private final String name;</span>
+
+    /**
+     * 根据code获取枚举
+     */
+    public static DataModality fromCode(int code) {
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        for (DataModality modality : values()) {</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">            if (modality.code == code) {</span>
+<span class="fc" id="L31">                return modality;</span>
+            }
+        }
+<span class="nc" id="L34">        throw new IllegalArgumentException(&quot;Invalid modality code: &quot; + code);</span>
+    }
+
+    /**
+     * 根据名称获取枚举
+     */
+    public static DataModality fromName(String name) {
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">        for (DataModality modality : values()) {</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">            if (modality.name.equals(name)) {</span>
+<span class="fc" id="L43">                return modality;</span>
+            }
+        }
+<span class="nc" id="L46">        throw new IllegalArgumentException(&quot;Invalid modality name: &quot; + name);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LabelTaskServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.label.service.impl</a> &gt; <span class="el_source">LabelTaskServiceImpl.java</span></div><h1>LabelTaskServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.label.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.enums.DataStatus;
+import com.ctg.dataFab.common.enums.LabelTaskStatus;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.ingest.entity.DataSample;
+import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
+import com.ctg.dataFab.ingest.service.DatasetService;
+import com.ctg.dataFab.label.dto.CreateLabelTaskRequest;
+import com.ctg.dataFab.label.dto.SubmitLabelRequest;
+import com.ctg.dataFab.label.engine.IaaEngine;
+import com.ctg.dataFab.label.entity.LabelArbitration;
+import com.ctg.dataFab.label.entity.LabelRecord;
+import com.ctg.dataFab.label.entity.LabelTask;
+import com.ctg.dataFab.label.mapper.LabelArbitrationMapper;
+import com.ctg.dataFab.label.mapper.LabelRecordMapper;
+import com.ctg.dataFab.label.mapper.LabelTaskMapper;
+import com.ctg.dataFab.label.service.LabelTaskService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * 标注任务服务实现
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L39">@Slf4j</span>
+@Service
+<span class="fc" id="L41">@RequiredArgsConstructor</span>
+public class LabelTaskServiceImpl implements LabelTaskService {
+
+    private final LabelTaskMapper labelTaskMapper;
+    private final LabelRecordMapper labelRecordMapper;
+    private final LabelArbitrationMapper labelArbitrationMapper;
+    private final DataSampleMapper dataSampleMapper;
+    private final DatasetService datasetService;
+    private final ObjectMapper objectMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createTask(CreateLabelTaskRequest request) {
+<span class="fc" id="L54">        log.info(&quot;创建标注任务: {}&quot;, request.getTaskName());</span>
+
+        // 双盲标注校验：至少需要2名标注员
+<span class="pc bpc" id="L57" title="1 of 4 branches missed.">        if (request.getDoubleBlind() != null &amp;&amp; request.getDoubleBlind() == 1) {</span>
+<span class="pc bpc" id="L58" title="1 of 4 branches missed.">            if (request.getAnnotatorIds() == null || request.getAnnotatorIds().size() &lt; 2) {</span>
+<span class="fc" id="L59">                throw new BusinessException(&quot;双盲标注至少需要2名标注员&quot;);</span>
+            }
+        }
+
+<span class="fc" id="L63">        LabelTask task = new LabelTask();</span>
+<span class="fc" id="L64">        task.setDatasetId(request.getDatasetId());</span>
+<span class="fc" id="L65">        task.setTaskName(request.getTaskName());</span>
+<span class="fc" id="L66">        task.setModality(request.getModality());</span>
+<span class="fc" id="L67">        task.setLabelType(request.getLabelType());</span>
+<span class="fc" id="L68">        task.setLabelSchema(request.getLabelSchema());</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        task.setDoubleBlind(request.getDoubleBlind() != null ? request.getDoubleBlind() : 1);</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        task.setAnnotatorCount(request.getAnnotatorIds() != null ? request.getAnnotatorIds().size() : 0);</span>
+<span class="fc" id="L71">        task.setArbitratorId(request.getArbitratorId());</span>
+<span class="fc" id="L72">        task.setSopDescription(request.getSopDescription());</span>
+<span class="fc" id="L73">        task.setStatus(LabelTaskStatus.PENDING.getCode());</span>
+
+        // 统计数据集样本数量
+<span class="fc" id="L76">        LambdaQueryWrapper&lt;DataSample&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L77">        wrapper.eq(DataSample::getDatasetId, request.getDatasetId());</span>
+<span class="fc" id="L78">        Long sampleCount = dataSampleMapper.selectCount(wrapper);</span>
+<span class="fc" id="L79">        task.setTotalSamples(sampleCount.intValue());</span>
+<span class="fc" id="L80">        task.setLabeledCount(0);</span>
+
+        try {
+<span class="fc" id="L83">            task.setAnnotatorIds(objectMapper.writeValueAsString(request.getAnnotatorIds()));</span>
+<span class="nc" id="L84">        } catch (Exception e) {</span>
+<span class="nc" id="L85">            log.error(&quot;序列化标注员ID列表失败&quot;, e);</span>
+<span class="fc" id="L86">        }</span>
+
+<span class="fc" id="L88">        labelTaskMapper.insert(task);</span>
+
+        // 为每个样本创建标注记录
+<span class="fc" id="L91">        List&lt;DataSample&gt; samples = dataSampleMapper.selectList(wrapper);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        for (DataSample sample : samples) {</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">            if (request.getAnnotatorIds() != null) {</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">                for (Long annotatorId : request.getAnnotatorIds()) {</span>
+<span class="fc" id="L95">                    LabelRecord record = new LabelRecord();</span>
+<span class="fc" id="L96">                    record.setTaskId(task.getId());</span>
+<span class="fc" id="L97">                    record.setSampleId(sample.getId());</span>
+<span class="fc" id="L98">                    record.setAnnotatorId(annotatorId);</span>
+<span class="fc" id="L99">                    record.setStatus(0); // 待标注</span>
+<span class="fc" id="L100">                    labelRecordMapper.insert(record);</span>
+<span class="fc" id="L101">                }</span>
+            }
+<span class="fc" id="L103">        }</span>
+
+        // 更新任务状态为标注中
+<span class="fc" id="L106">        task.setStatus(LabelTaskStatus.IN_PROGRESS.getCode());</span>
+<span class="fc" id="L107">        labelTaskMapper.updateById(task);</span>
+
+<span class="fc" id="L109">        log.info(&quot;标注任务创建成功, ID: {}, 样本数: {}&quot;, task.getId(), task.getTotalSamples());</span>
+<span class="fc" id="L110">        return task.getId();</span>
+    }
+
+    @Override
+    public LabelTask getTaskById(Long id) {
+<span class="fc" id="L115">        LabelTask task = labelTaskMapper.selectById(id);</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if (task == null) {</span>
+<span class="fc" id="L117">            throw new BusinessException(&quot;标注任务不存在&quot;);</span>
+        }
+<span class="fc" id="L119">        return task;</span>
+    }
+
+    @Override
+    public Page&lt;LabelTask&gt; listTasks(Long datasetId, Integer status, PageRequest pageRequest) {
+<span class="fc" id="L124">        LambdaQueryWrapper&lt;LabelTask&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="pc bpc" id="L125" title="2 of 4 branches missed.">        wrapper.eq(datasetId != null, LabelTask::getDatasetId, datasetId)</span>
+<span class="fc" id="L126">               .eq(status != null, LabelTask::getStatus, status)</span>
+<span class="fc" id="L127">               .orderByDesc(LabelTask::getCreateTime);</span>
+
+<span class="fc" id="L129">        Page&lt;LabelTask&gt; page = new Page&lt;&gt;(pageRequest.getPageNum(), pageRequest.getPageSize());</span>
+<span class="fc" id="L130">        return labelTaskMapper.selectPage(page, wrapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void submitLabel(SubmitLabelRequest request) {
+<span class="fc" id="L136">        log.info(&quot;提交标注: 任务ID={}, 样本ID={}, 标注员ID={}&quot;,</span>
+<span class="fc" id="L137">                request.getTaskId(), request.getSampleId(), request.getAnnotatorId());</span>
+
+        // 查找标注记录
+<span class="fc" id="L140">        LambdaQueryWrapper&lt;LabelRecord&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L141">        wrapper.eq(LabelRecord::getTaskId, request.getTaskId())</span>
+<span class="fc" id="L142">               .eq(LabelRecord::getSampleId, request.getSampleId())</span>
+<span class="fc" id="L143">               .eq(LabelRecord::getAnnotatorId, request.getAnnotatorId());</span>
+
+<span class="fc" id="L145">        LabelRecord record = labelRecordMapper.selectOne(wrapper);</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        if (record == null) {</span>
+<span class="fc" id="L147">            throw new BusinessException(&quot;标注记录不存在&quot;);</span>
+        }
+
+<span class="fc" id="L150">        record.setAnnotations(request.getAnnotations());</span>
+<span class="fc" id="L151">        record.setStatus(1); // 已标注</span>
+<span class="fc" id="L152">        record.setDurationSeconds(request.getDurationSeconds());</span>
+<span class="fc" id="L153">        record.setSubmitTime(LocalDateTime.now());</span>
+<span class="fc" id="L154">        labelRecordMapper.updateById(record);</span>
+
+        // 更新任务已标注数量
+<span class="fc" id="L157">        LabelTask task = getTaskById(request.getTaskId());</span>
+<span class="fc" id="L158">        LambdaQueryWrapper&lt;LabelRecord&gt; countWrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L159">        countWrapper.eq(LabelRecord::getTaskId, task.getId())</span>
+<span class="fc" id="L160">                   .eq(LabelRecord::getStatus, 1);</span>
+<span class="fc" id="L161">        Long labeledCount = labelRecordMapper.selectCount(countWrapper);</span>
+<span class="fc" id="L162">        task.setLabeledCount(labeledCount.intValue());</span>
+
+        // 检查是否所有标注员都已完成该样本的标注
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        if (task.getDoubleBlind() == 1) {</span>
+<span class="fc" id="L166">            checkAndProcessIaa(task, request.getSampleId());</span>
+        }
+
+<span class="fc" id="L169">        labelTaskMapper.updateById(task);</span>
+<span class="fc" id="L170">        log.info(&quot;标注提交成功, 任务ID: {}, 已标注: {}/{}&quot;, task.getId(), labeledCount, task.getTotalSamples() * task.getAnnotatorCount());</span>
+<span class="fc" id="L171">    }</span>
+
+    /**
+     * 检查并处理IAA
+     * H3修复: 等全部标注员提交后再算; 多人场景接入Fleiss Kappa; 加并发保护
+     */
+    private void checkAndProcessIaa(LabelTask task, Long sampleId) {
+        // 获取该样本的所有标注记录
+<span class="fc" id="L179">        LambdaQueryWrapper&lt;LabelRecord&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L180">        wrapper.eq(LabelRecord::getTaskId, task.getId())</span>
+<span class="fc" id="L181">               .eq(LabelRecord::getSampleId, sampleId)</span>
+<span class="fc" id="L182">               .eq(LabelRecord::getStatus, 1); // 已标注</span>
+<span class="fc" id="L183">        List&lt;LabelRecord&gt; records = labelRecordMapper.selectList(wrapper);</span>
+
+        // H3修复: 必须等全部标注员都提交后才计算IAA
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        int expectedAnnotators = task.getAnnotatorCount() != null ? task.getAnnotatorCount() : 2;</span>
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (records.size() &lt; expectedAnnotators) {</span>
+<span class="fc" id="L188">            log.debug(&quot;等待更多标注员提交: 样本ID={}, 已提交={}/{}&quot;, sampleId, records.size(), expectedAnnotators);</span>
+<span class="fc" id="L189">            return; // 还未完成全部标注</span>
+        }
+
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (records.size() &lt; 2) {</span>
+<span class="nc" id="L193">            return; // 至少需要2名标注员</span>
+        }
+
+        // H3修复: 并发保护 - 检查是否已经处理过该样本的IAA
+<span class="nc" id="L197">        LambdaQueryWrapper&lt;LabelArbitration&gt; arbWrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="nc" id="L198">        arbWrapper.eq(LabelArbitration::getTaskId, task.getId())</span>
+<span class="nc" id="L199">                  .eq(LabelArbitration::getSampleId, sampleId);</span>
+<span class="nc" id="L200">        Long existingArbCount = labelArbitrationMapper.selectCount(arbWrapper);</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (existingArbCount &gt; 0) {</span>
+<span class="nc" id="L202">            log.debug(&quot;该样本已处理过IAA, 跳过: 样本ID={}&quot;, sampleId);</span>
+<span class="nc" id="L203">            return;</span>
+        }
+
+        // H3修复: 根据标注员数量选择Cohen's Kappa或Fleiss' Kappa
+        double kappa;
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (records.size() == 2) {</span>
+            // 2名标注员: 使用Cohen's Kappa
+<span class="nc" id="L210">            String[] labels1 = parseAnnotations(records.get(0).getAnnotations());</span>
+<span class="nc" id="L211">            String[] labels2 = parseAnnotations(records.get(1).getAnnotations());</span>
+
+<span class="nc bnc" id="L213" title="All 4 branches missed.">            if (labels1.length == 0 || labels2.length == 0) {</span>
+<span class="nc" id="L214">                return;</span>
+            }
+
+<span class="nc" id="L217">            kappa = IaaEngine.calculateCohenKappa(labels1, labels2);</span>
+<span class="nc" id="L218">        } else {</span>
+            // 3名及以上标注员: 使用Fleiss' Kappa
+<span class="nc" id="L220">            kappa = calculateFleissKappaForSample(records);</span>
+        }
+
+<span class="nc" id="L223">        IaaEngine.IaaDecision decision = IaaEngine.decide(kappa);</span>
+
+<span class="nc" id="L225">        log.info(&quot;IAA计算结果: 样本ID={}, 标注员数={}, Kappa={}, 决策={}&quot;, sampleId, records.size(), kappa, decision);</span>
+
+<span class="nc bnc" id="L227" title="All 4 branches missed.">        switch (decision) {</span>
+            case ACCEPT:
+                // 采纳标注，更新样本状态为已标注
+<span class="nc" id="L230">                DataSample sample = dataSampleMapper.selectById(sampleId);</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">                if (sample != null) {</span>
+<span class="nc" id="L232">                    sample.setStatus(DataStatus.LABELED.getCode());</span>
+<span class="nc" id="L233">                    dataSampleMapper.updateById(sample);</span>
+                }
+                break;
+            case ARBITRATE:
+                // 进入仲裁
+<span class="nc" id="L238">                LabelArbitration arbitration = new LabelArbitration();</span>
+<span class="nc" id="L239">                arbitration.setTaskId(task.getId());</span>
+<span class="nc" id="L240">                arbitration.setSampleId(sampleId);</span>
+<span class="nc" id="L241">                arbitration.setOriginalKappa(kappa);</span>
+<span class="nc" id="L242">                arbitration.setArbitratorId(task.getArbitratorId());</span>
+<span class="nc" id="L243">                arbitration.setStatus(0); // 待仲裁</span>
+                try {
+<span class="nc" id="L245">                    arbitration.setConflictAnnotations(</span>
+<span class="nc" id="L246">                            objectMapper.writeValueAsString(</span>
+<span class="nc" id="L247">                                    records.stream().map(LabelRecord::getAnnotations).collect(Collectors.toList())));</span>
+<span class="nc" id="L248">                } catch (Exception e) {</span>
+<span class="nc" id="L249">                    log.error(&quot;序列化冲突标注失败&quot;, e);</span>
+<span class="nc" id="L250">                }</span>
+<span class="nc" id="L251">                labelArbitrationMapper.insert(arbitration);</span>
+<span class="nc" id="L252">                task.setStatus(LabelTaskStatus.ARBITRATING.getCode());</span>
+<span class="nc" id="L253">                break;</span>
+            case RELABEL:
+                // 触发重标
+<span class="nc" id="L256">                triggerRelabelForSample(task, sampleId);</span>
+                break;
+        }
+<span class="nc" id="L259">    }</span>
+
+    /**
+     * H3修复: 计算单个样本的Fleiss' Kappa (多名标注员)
+     */
+    private double calculateFleissKappaForSample(List&lt;LabelRecord&gt; records) {
+<span class="nc bnc" id="L265" title="All 2 branches missed.">        if (records.size() &lt; 2) {</span>
+<span class="nc" id="L266">            return 0.0;</span>
+        }
+
+        // 解析所有标注员的标签
+<span class="nc" id="L270">        List&lt;String[]&gt; allLabels = records.stream()</span>
+<span class="nc" id="L271">                .map(r -&gt; parseAnnotations(r.getAnnotations()))</span>
+<span class="nc bnc" id="L272" title="All 2 branches missed.">                .filter(labels -&gt; labels.length &gt; 0)</span>
+<span class="nc" id="L273">                .collect(Collectors.toList());</span>
+
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (allLabels.size() &lt; 2) {</span>
+<span class="nc" id="L276">            return 0.0;</span>
+        }
+
+        // 找出最大标签数量 (所有标注员应该标注相同数量的项目)
+<span class="nc" id="L280">        int maxLabels = allLabels.stream().mapToInt(arr -&gt; arr.length).max().orElse(0);</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">        if (maxLabels == 0) {</span>
+<span class="nc" id="L282">            return 0.0;</span>
+        }
+
+        // 收集所有唯一的类别
+<span class="nc" id="L286">        Set&lt;String&gt; allCategories = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        for (String[] labels : allLabels) {</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">            for (String label : labels) {</span>
+<span class="nc" id="L289">                allCategories.add(label);</span>
+            }
+<span class="nc" id="L291">        }</span>
+
+<span class="nc" id="L293">        int categories = allCategories.size();</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">        if (categories == 0) {</span>
+<span class="nc" id="L295">            return 0.0;</span>
+        }
+
+        // 构建Fleiss' Kappa矩阵: [样本数][类别数]
+        // 这里每个&quot;样本&quot;实际上是一个标注位置 (如图像中的第i个对象)
+<span class="nc" id="L300">        int[][] annotations = new int[maxLabels][categories];</span>
+<span class="nc" id="L301">        List&lt;String&gt; categoryList = new ArrayList&lt;&gt;(allCategories);</span>
+
+<span class="nc bnc" id="L303" title="All 2 branches missed.">        for (String[] labels : allLabels) {</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">            for (int j = 0; j &lt; labels.length; j++) {</span>
+<span class="nc" id="L305">                int categoryIndex = categoryList.indexOf(labels[j]);</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">                if (categoryIndex &gt;= 0) {</span>
+<span class="nc" id="L307">                    annotations[j][categoryIndex]++;</span>
+                }
+            }
+<span class="nc" id="L310">        }</span>
+
+<span class="nc" id="L312">        return IaaEngine.calculateFleissKappa(annotations, categories);</span>
+    }
+
+    /**
+     * 解析标注结果为标签数组
+     */
+    private String[] parseAnnotations(String annotationsJson) {
+        try {
+<span class="fc" id="L320">            List&lt;String&gt; labels = objectMapper.readValue(annotationsJson, new TypeReference&lt;List&lt;String&gt;&gt;() {});</span>
+<span class="nc" id="L321">            return labels.toArray(new String[0]);</span>
+<span class="fc" id="L322">        } catch (Exception e) {</span>
+<span class="fc" id="L323">            log.warn(&quot;解析标注结果失败: {}&quot;, annotationsJson, e);</span>
+<span class="fc" id="L324">            return new String[0];</span>
+        }
+    }
+
+    /**
+     * 触发单个样本重标
+     */
+    private void triggerRelabelForSample(LabelTask task, Long sampleId) {
+<span class="nc" id="L332">        log.warn(&quot;触发重标: 任务ID={}, 样本ID={}, Kappa&lt;0.70&quot;, task.getId(), sampleId);</span>
+
+        // 删除原有标注记录
+<span class="nc" id="L335">        LambdaQueryWrapper&lt;LabelRecord&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="nc" id="L336">        wrapper.eq(LabelRecord::getTaskId, task.getId())</span>
+<span class="nc" id="L337">               .eq(LabelRecord::getSampleId, sampleId);</span>
+<span class="nc" id="L338">        labelRecordMapper.delete(wrapper);</span>
+
+        // 重新创建标注记录
+        try {
+<span class="nc" id="L342">            List&lt;Long&gt; annotatorIds = objectMapper.readValue(task.getAnnotatorIds(), new TypeReference&lt;List&lt;Long&gt;&gt;() {});</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">            for (Long annotatorId : annotatorIds) {</span>
+<span class="nc" id="L344">                LabelRecord record = new LabelRecord();</span>
+<span class="nc" id="L345">                record.setTaskId(task.getId());</span>
+<span class="nc" id="L346">                record.setSampleId(sampleId);</span>
+<span class="nc" id="L347">                record.setAnnotatorId(annotatorId);</span>
+<span class="nc" id="L348">                record.setStatus(0); // 待标注</span>
+<span class="nc" id="L349">                labelRecordMapper.insert(record);</span>
+<span class="nc" id="L350">            }</span>
+<span class="nc" id="L351">        } catch (Exception e) {</span>
+<span class="nc" id="L352">            log.error(&quot;重新创建标注记录失败&quot;, e);</span>
+<span class="nc" id="L353">        }</span>
+<span class="nc" id="L354">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void triggerArbitration(Long taskId) {
+<span class="fc" id="L359">        LabelTask task = getTaskById(taskId);</span>
+<span class="fc bfc" id="L360" title="All 2 branches covered.">        if (task.getStatus() != LabelTaskStatus.ARBITRATING.getCode()) {</span>
+<span class="fc" id="L361">            throw new BusinessException(&quot;任务状态不是仲裁中&quot;);</span>
+        }
+<span class="fc" id="L363">        log.info(&quot;触发仲裁, 任务ID: {}&quot;, taskId);</span>
+<span class="fc" id="L364">    }</span>
+
+    @Override
+    public Double calculateIaaScore(Long taskId) {
+<span class="fc" id="L368">        LabelTask task = getTaskById(taskId);</span>
+
+        // 获取所有已标注的记录
+<span class="fc" id="L371">        LambdaQueryWrapper&lt;LabelRecord&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L372">        wrapper.eq(LabelRecord::getTaskId, taskId)</span>
+<span class="fc" id="L373">               .eq(LabelRecord::getStatus, 1);</span>
+<span class="fc" id="L374">        List&lt;LabelRecord&gt; allRecords = labelRecordMapper.selectList(wrapper);</span>
+
+<span class="fc bfc" id="L376" title="All 2 branches covered.">        if (allRecords.isEmpty()) {</span>
+<span class="fc" id="L377">            return 0.0;</span>
+        }
+
+        // 按样本分组
+<span class="fc" id="L381">        Map&lt;Long, List&lt;LabelRecord&gt;&gt; bySample = allRecords.stream()</span>
+<span class="fc" id="L382">                .collect(Collectors.groupingBy(LabelRecord::getSampleId));</span>
+
+        // H3修复: 根据标注员数量选择Cohen's Kappa或Fleiss' Kappa
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">        int annotatorCount = task.getAnnotatorCount() != null ? task.getAnnotatorCount() : 2;</span>
+<span class="fc" id="L386">        double totalKappa = 0.0;</span>
+<span class="fc" id="L387">        int count = 0;</span>
+
+<span class="fc bfc" id="L389" title="All 2 branches covered.">        for (List&lt;LabelRecord&gt; records : bySample.values()) {</span>
+<span class="pc bpc" id="L390" title="1 of 2 branches missed.">            if (records.size() &lt; 2) {</span>
+<span class="nc" id="L391">                continue;</span>
+            }
+
+            double kappa;
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">            if (annotatorCount &lt;= 2) {</span>
+                // 2名标注员: 使用Cohen's Kappa
+<span class="fc" id="L397">                String[] labels1 = parseAnnotations(records.get(0).getAnnotations());</span>
+<span class="fc" id="L398">                String[] labels2 = parseAnnotations(records.get(1).getAnnotations());</span>
+<span class="pc bpc" id="L399" title="3 of 4 branches missed.">                if (labels1.length &gt; 0 &amp;&amp; labels2.length &gt; 0) {</span>
+<span class="nc" id="L400">                    kappa = IaaEngine.calculateCohenKappa(labels1, labels2);</span>
+<span class="nc" id="L401">                    totalKappa += kappa;</span>
+<span class="nc" id="L402">                    count++;</span>
+                }
+<span class="fc" id="L404">            } else {</span>
+                // 3名及以上标注员: 使用Fleiss' Kappa
+<span class="nc" id="L406">                kappa = calculateFleissKappaForSample(records);</span>
+<span class="nc" id="L407">                totalKappa += kappa;</span>
+<span class="nc" id="L408">                count++;</span>
+            }
+<span class="fc" id="L410">        }</span>
+
+<span class="pc bpc" id="L412" title="1 of 2 branches missed.">        double avgKappa = count &gt; 0 ? totalKappa / count : 0.0;</span>
+<span class="fc" id="L413">        task.setKappaScore(avgKappa);</span>
+<span class="fc" id="L414">        labelTaskMapper.updateById(task);</span>
+
+<span class="fc" id="L416">        return avgKappa;</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void triggerRelabel(Long taskId) {
+<span class="fc" id="L422">        LabelTask task = getTaskById(taskId);</span>
+<span class="fc" id="L423">        log.warn(&quot;触发整体重标, 任务ID: {}&quot;, taskId);</span>
+
+        // 删除所有标注记录
+<span class="fc" id="L426">        LambdaQueryWrapper&lt;LabelRecord&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L427">        wrapper.eq(LabelRecord::getTaskId, taskId);</span>
+<span class="fc" id="L428">        labelRecordMapper.delete(wrapper);</span>
+
+        // 重新创建标注记录
+        try {
+<span class="fc" id="L432">            List&lt;Long&gt; annotatorIds = objectMapper.readValue(task.getAnnotatorIds(), new TypeReference&lt;List&lt;Long&gt;&gt;() {});</span>
+<span class="fc" id="L433">            LambdaQueryWrapper&lt;DataSample&gt; sampleWrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L434">            sampleWrapper.eq(DataSample::getDatasetId, task.getDatasetId());</span>
+<span class="fc" id="L435">            List&lt;DataSample&gt; samples = dataSampleMapper.selectList(sampleWrapper);</span>
+
+<span class="pc bpc" id="L437" title="1 of 2 branches missed.">            for (DataSample sample : samples) {</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">                for (Long annotatorId : annotatorIds) {</span>
+<span class="nc" id="L439">                    LabelRecord record = new LabelRecord();</span>
+<span class="nc" id="L440">                    record.setTaskId(taskId);</span>
+<span class="nc" id="L441">                    record.setSampleId(sample.getId());</span>
+<span class="nc" id="L442">                    record.setAnnotatorId(annotatorId);</span>
+<span class="nc" id="L443">                    record.setStatus(0);</span>
+<span class="nc" id="L444">                    labelRecordMapper.insert(record);</span>
+<span class="nc" id="L445">                }</span>
+<span class="nc" id="L446">            }</span>
+<span class="fc" id="L447">        } catch (Exception e) {</span>
+<span class="fc" id="L448">            log.error(&quot;重新创建标注记录失败&quot;, e);</span>
+<span class="fc" id="L449">        }</span>
+
+<span class="fc" id="L451">        task.setStatus(LabelTaskStatus.IN_PROGRESS.getCode());</span>
+<span class="fc" id="L452">        task.setLabeledCount(0);</span>
+<span class="fc" id="L453">        task.setKappaScore(null);</span>
+<span class="fc" id="L454">        labelTaskMapper.updateById(task);</span>
+<span class="fc" id="L455">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LabelArbitration.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.label.entity</a> &gt; <span class="el_source">LabelArbitration.java</span></div><h1>LabelArbitration.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.label.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+import java.time.LocalDateTime;
+
+/**
+ * 仲裁记录实体
+ * 对应表：t_label_arbitration
+ * 当 Kappa 在 0.70~0.85 之间时进入仲裁
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="nc bnc" id="L15" title="All 94 branches missed.">@Data</span>
+@TableName(&quot;t_label_arbitration&quot;)
+public class LabelArbitration {
+
+    @TableId(type = IdType.ASSIGN_ID)
+<span class="nc" id="L20">    private Long id;</span>
+
+    /**
+     * 标注任务ID
+     */
+<span class="nc" id="L25">    private Long taskId;</span>
+
+    /**
+     * 数据样本ID
+     */
+<span class="nc" id="L30">    private Long sampleId;</span>
+
+    /**
+     * 原始Kappa值
+     */
+<span class="nc" id="L35">    private Double originalKappa;</span>
+
+    /**
+     * 冲突标注（JSON格式，包含各标注员结果）
+     */
+<span class="nc" id="L40">    private String conflictAnnotations;</span>
+
+    /**
+     * 仲裁员ID
+     */
+<span class="nc" id="L45">    private Long arbitratorId;</span>
+
+    /**
+     * 仲裁结果（JSON格式）
+     */
+<span class="nc" id="L50">    private String finalAnnotations;</span>
+
+    /**
+     * 仲裁状态：0-待仲裁，1-已仲裁
+     */
+<span class="nc" id="L55">    private Integer status;</span>
+
+    /**
+     * 仲裁时间
+     */
+<span class="nc" id="L60">    private LocalDateTime arbitrateTime;</span>
+
+    /**
+     * 创建时间
+     */
+    @TableField(fill = FieldFill.INSERT)
+<span class="nc" id="L66">    private LocalDateTime createTime;</span>
+
+    /**
+     * 更新时间
+     */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+<span class="nc" id="L72">    private LocalDateTime updateTime;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

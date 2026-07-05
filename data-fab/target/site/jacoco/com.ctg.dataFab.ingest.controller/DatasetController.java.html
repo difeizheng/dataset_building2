@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DatasetController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.ingest.controller</a> &gt; <span class="el_source">DatasetController.java</span></div><h1>DatasetController.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.ingest.controller;
+
+import com.ctg.dataFab.common.dto.ApiResponse;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.dto.PageResponse;
+import com.ctg.dataFab.ingest.dto.DatasetCreateRequest;
+import com.ctg.dataFab.ingest.entity.Dataset;
+import com.ctg.dataFab.ingest.service.DatasetService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 数据集控制器
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L23">@Slf4j</span>
+@RestController
+@RequestMapping(&quot;/api/v1/data/datasets&quot;)
+<span class="fc" id="L26">@RequiredArgsConstructor</span>
+@Tag(name = &quot;数据集管理&quot;, description = &quot;数据集的增删改查接口&quot;)
+public class DatasetController {
+
+    private final DatasetService datasetService;
+
+    @PostMapping
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR')&quot;)
+    @Operation(summary = &quot;创建数据集&quot;)
+    public ApiResponse&lt;Long&gt; createDataset(@Valid @RequestBody DatasetCreateRequest request) {
+<span class="fc" id="L36">        Long id = datasetService.createDataset(request);</span>
+<span class="fc" id="L37">        return ApiResponse.success(id);</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')&quot;)
+    @Operation(summary = &quot;获取数据集详情&quot;)
+    public ApiResponse&lt;Dataset&gt; getDataset(@PathVariable Long id) {
+<span class="fc" id="L44">        Dataset dataset = datasetService.getDatasetById(id);</span>
+<span class="fc" id="L45">        return ApiResponse.success(dataset);</span>
+    }
+
+    @GetMapping
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')&quot;)
+    @Operation(summary = &quot;分页查询数据集&quot;)
+    public ApiResponse&lt;PageResponse&lt;Dataset&gt;&gt; listDatasets(
+            @RequestParam(required = false) Integer modality,
+            @RequestParam(required = false) Integer dataLevel,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = &quot;1&quot;) Integer pageNum,
+            @RequestParam(defaultValue = &quot;20&quot;) Integer pageSize) {
+
+<span class="fc" id="L58">        PageRequest pageRequest = new PageRequest();</span>
+<span class="fc" id="L59">        pageRequest.setPageNum(pageNum);</span>
+<span class="fc" id="L60">        pageRequest.setPageSize(pageSize);</span>
+
+<span class="fc" id="L62">        var page = datasetService.listDatasets(modality, dataLevel, status, pageRequest);</span>
+<span class="fc" id="L63">        PageResponse&lt;Dataset&gt; response = PageResponse.of(</span>
+<span class="fc" id="L64">                page.getRecords(),</span>
+<span class="fc" id="L65">                page.getTotal(),</span>
+<span class="fc" id="L66">                (int) page.getCurrent(),</span>
+<span class="fc" id="L67">                (int) page.getSize()</span>
+        );
+
+<span class="fc" id="L70">        return ApiResponse.success(response);</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    @Operation(summary = &quot;删除数据集&quot;)
+    public ApiResponse&lt;Void&gt; deleteDataset(@PathVariable Long id) {
+<span class="fc" id="L77">        datasetService.deleteDataset(id);</span>
+<span class="fc" id="L78">        return ApiResponse.success();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

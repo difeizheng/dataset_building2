@@ -1,0 +1,61 @@
+-------------------------------------------------------------------------------
+Test set: com.ctg.dataFab.integration.DataFabFullChainIntegrationTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 5, Errors: 0, Skipped: 0, Time elapsed: 20.00 s <<< FAILURE! -- in com.ctg.dataFab.integration.DataFabFullChainIntegrationTest
+com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testLabelConsistencyCalculation -- Time elapsed: 2.100 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testLabelConsistencyCalculation(DataFabFullChainIntegrationTest.java:177)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testDataClassificationAccessControl -- Time elapsed: 2.276 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testDataClassificationAccessControl(DataFabFullChainIntegrationTest.java:163)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testQualityGateCheck -- Time elapsed: 1.475 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.createDataset(DataFabFullChainIntegrationTest.java:87)
+	at com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testQualityGateCheck(DataFabFullChainIntegrationTest.java:185)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testFullDataBuildingChain -- Time elapsed: 1.059 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.createDataset(DataFabFullChainIntegrationTest.java:87)
+	at com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testFullDataBuildingChain(DataFabFullChainIntegrationTest.java:53)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testL4DataDownloadBlocking -- Time elapsed: 1.089 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:59)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:122)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:637)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.ctg.dataFab.integration.DataFabFullChainIntegrationTest.testL4DataDownloadBlocking(DataFabFullChainIntegrationTest.java:209)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+

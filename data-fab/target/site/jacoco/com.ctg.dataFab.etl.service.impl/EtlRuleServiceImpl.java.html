@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EtlRuleServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.etl.service.impl</a> &gt; <span class="el_source">EtlRuleServiceImpl.java</span></div><h1>EtlRuleServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.etl.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.etl.entity.EtlRule;
+import com.ctg.dataFab.etl.mapper.EtlRuleMapper;
+import com.ctg.dataFab.etl.service.EtlRuleService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 清洗规则服务实现
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L21">@Slf4j</span>
+@Service
+<span class="fc" id="L23">@RequiredArgsConstructor</span>
+public class EtlRuleServiceImpl implements EtlRuleService {
+
+    private final EtlRuleMapper etlRuleMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createRule(EtlRule rule) {
+<span class="fc" id="L31">        log.info(&quot;创建清洗规则: {}&quot;, rule.getName());</span>
+<span class="fc" id="L32">        rule.setEnabled(1); // 默认启用</span>
+<span class="fc" id="L33">        etlRuleMapper.insert(rule);</span>
+<span class="fc" id="L34">        log.info(&quot;清洗规则创建成功, ID: {}&quot;, rule.getId());</span>
+<span class="fc" id="L35">        return rule.getId();</span>
+    }
+
+    @Override
+    public EtlRule getRuleById(Long id) {
+<span class="fc" id="L40">        EtlRule rule = etlRuleMapper.selectById(id);</span>
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        if (rule == null) {</span>
+<span class="fc" id="L42">            throw new BusinessException(&quot;清洗规则不存在&quot;);</span>
+        }
+<span class="fc" id="L44">        return rule;</span>
+    }
+
+    @Override
+    public Page&lt;EtlRule&gt; listRules(Integer modality, String ruleType, PageRequest pageRequest) {
+<span class="fc" id="L49">        LambdaQueryWrapper&lt;EtlRule&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc bfc" id="L50" title="All 4 branches covered.">        wrapper.eq(modality != null, EtlRule::getModality, modality)</span>
+<span class="fc" id="L51">               .eq(ruleType != null, EtlRule::getRuleType, ruleType)</span>
+<span class="fc" id="L52">               .orderByDesc(EtlRule::getPriority)</span>
+<span class="fc" id="L53">               .orderByDesc(EtlRule::getCreateTime);</span>
+
+<span class="fc" id="L55">        Page&lt;EtlRule&gt; page = new Page&lt;&gt;(pageRequest.getPageNum(), pageRequest.getPageSize());</span>
+<span class="fc" id="L56">        return etlRuleMapper.selectPage(page, wrapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateRule(EtlRule rule) {
+<span class="fc" id="L62">        etlRuleMapper.updateById(rule);</span>
+<span class="fc" id="L63">        log.info(&quot;清洗规则更新成功, ID: {}&quot;, rule.getId());</span>
+<span class="fc" id="L64">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteRule(Long id) {
+<span class="fc" id="L69">        getRuleById(id);</span>
+<span class="fc" id="L70">        etlRuleMapper.deleteById(id);</span>
+<span class="fc" id="L71">        log.info(&quot;清洗规则删除成功, ID: {}&quot;, id);</span>
+<span class="fc" id="L72">    }</span>
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void toggleRuleEnabled(Long id, Integer enabled) {
+<span class="fc" id="L77">        EtlRule rule = getRuleById(id);</span>
+<span class="fc" id="L78">        rule.setEnabled(enabled);</span>
+<span class="fc" id="L79">        etlRuleMapper.updateById(rule);</span>
+<span class="fc" id="L80">        log.info(&quot;清洗规则启用状态更新成功, ID: {}, 启用: {}&quot;, id, enabled);</span>
+<span class="fc" id="L81">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

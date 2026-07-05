@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DeliveryServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.delivery.service.impl</a> &gt; <span class="el_source">DeliveryServiceImpl.java</span></div><h1>DeliveryServiceImpl.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.delivery.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ctg.dataFab.access.service.DataAccessControlService;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.enums.DataStatus;
+import com.ctg.dataFab.common.exception.BusinessException;
+import com.ctg.dataFab.common.util.Utils;
+import com.ctg.dataFab.delivery.dto.PublishRequest;
+import com.ctg.dataFab.delivery.dto.PublishResponse;
+import com.ctg.dataFab.delivery.entity.DeliveryRecord;
+import com.ctg.dataFab.delivery.mapper.DeliveryRecordMapper;
+import com.ctg.dataFab.delivery.service.DeliveryService;
+import com.ctg.dataFab.ingest.entity.DataSample;
+import com.ctg.dataFab.ingest.entity.Dataset;
+import com.ctg.dataFab.ingest.mapper.DataSampleMapper;
+import com.ctg.dataFab.ingest.mapper.DatasetMapper;
+import com.ctg.dataFab.ingest.service.DatasetService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * 数据集交付服务实现
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L39">@Slf4j</span>
+@Service
+<span class="fc" id="L41">@RequiredArgsConstructor</span>
+public class DeliveryServiceImpl implements DeliveryService {
+
+    private final DeliveryRecordMapper deliveryRecordMapper;
+    private final DatasetMapper datasetMapper;
+    private final DataSampleMapper dataSampleMapper;
+    private final DatasetService datasetService;
+    private final StringRedisTemplate redisTemplate;
+    private final DataAccessControlService dataAccessControlService;
+    private final ObjectMapper objectMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PublishResponse publish(PublishRequest request) {
+<span class="fc" id="L55">        log.info(&quot;发布数据集: 数据集ID={}, 版本={}&quot;, request.getDatasetId(), request.getVersion());</span>
+
+        // 检查数据集状态
+<span class="fc" id="L58">        Dataset dataset = datasetService.getDatasetById(request.getDatasetId());</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (dataset.getStatus() != DataStatus.QA_PASS.getCode()) {</span>
+<span class="fc" id="L60">            throw new BusinessException(&quot;数据集未通过质量评估，无法发布&quot;);</span>
+        }
+
+        // 创建交付记录
+<span class="fc" id="L64">        DeliveryRecord record = new DeliveryRecord();</span>
+<span class="fc" id="L65">        record.setDatasetId(request.getDatasetId());</span>
+<span class="fc" id="L66">        record.setVersion(request.getVersion());</span>
+<span class="fc" id="L67">        record.setDatasetUri(&quot;dataset://&quot; + request.getDatasetId() + &quot;/&quot; + request.getVersion());</span>
+<span class="fc" id="L68">        record.setLicense(request.getLicense());</span>
+<span class="fc" id="L69">        record.setAccessPolicy(request.getAccessPolicy());</span>
+<span class="fc" id="L70">        record.setCroissantMetadata(request.getCroissant());</span>
+<span class="fc" id="L71">        record.setStatus(1); // 已发布</span>
+<span class="fc" id="L72">        record.setDownloadCount(0);</span>
+
+        // 生成数据血缘 (M-8: 使用ObjectMapper而非String.format)
+<span class="fc" id="L75">        Map&lt;String, Object&gt; lineageMap = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L76">        lineageMap.put(&quot;source&quot;, dataset.getName());</span>
+<span class="fc" id="L77">        lineageMap.put(&quot;version&quot;, request.getVersion());</span>
+<span class="fc" id="L78">        lineageMap.put(&quot;publishedAt&quot;, LocalDateTime.now().toString());</span>
+        try {
+<span class="fc" id="L80">            record.setLineage(objectMapper.writeValueAsString(lineageMap));</span>
+<span class="nc" id="L81">        } catch (Exception e) {</span>
+<span class="nc" id="L82">            log.error(&quot;序列化数据血缘失败&quot;, e);</span>
+<span class="nc" id="L83">            record.setLineage(&quot;{}&quot;);</span>
+<span class="fc" id="L84">        }</span>
+
+<span class="fc" id="L86">        deliveryRecordMapper.insert(record);</span>
+
+        // 更新数据集状态为已发布
+<span class="fc" id="L89">        dataset.setStatus(DataStatus.PUBLISHED.getCode());</span>
+<span class="fc" id="L90">        dataset.setVersion(request.getVersion());</span>
+<span class="fc" id="L91">        datasetMapper.updateById(dataset);</span>
+
+        // 构建响应
+<span class="fc" id="L94">        PublishResponse response = new PublishResponse();</span>
+<span class="fc" id="L95">        response.setRecordId(record.getId());</span>
+<span class="fc" id="L96">        response.setDatasetUri(record.getDatasetUri());</span>
+<span class="fc" id="L97">        response.setLicense(record.getLicense());</span>
+<span class="fc" id="L98">        response.setLineage(record.getLineage());</span>
+
+<span class="fc" id="L100">        log.info(&quot;数据集发布成功: 记录ID={}, URI={}&quot;, record.getId(), record.getDatasetUri());</span>
+<span class="fc" id="L101">        return response;</span>
+    }
+
+    @Override
+    public DeliveryRecord getRecordById(Long id) {
+<span class="fc" id="L106">        DeliveryRecord record = deliveryRecordMapper.selectById(id);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (record == null) {</span>
+<span class="fc" id="L108">            throw new BusinessException(&quot;交付记录不存在&quot;);</span>
+        }
+<span class="fc" id="L110">        return record;</span>
+    }
+
+    @Override
+    public Page&lt;DeliveryRecord&gt; listRecords(Long datasetId, Integer status, PageRequest pageRequest) {
+<span class="fc" id="L115">        LambdaQueryWrapper&lt;DeliveryRecord&gt; wrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="pc bpc" id="L116" title="2 of 4 branches missed.">        wrapper.eq(datasetId != null, DeliveryRecord::getDatasetId, datasetId)</span>
+<span class="fc" id="L117">               .eq(status != null, DeliveryRecord::getStatus, status)</span>
+<span class="fc" id="L118">               .orderByDesc(DeliveryRecord::getCreateTime);</span>
+
+<span class="fc" id="L120">        Page&lt;DeliveryRecord&gt; page = new Page&lt;&gt;(pageRequest.getPageNum(), pageRequest.getPageSize());</span>
+<span class="fc" id="L121">        return deliveryRecordMapper.selectPage(page, wrapper);</span>
+    }
+
+    @Override
+    public String generateDownloadToken(Long recordId, Long userId, String approvalId) {
+<span class="fc" id="L126">        DeliveryRecord record = getRecordById(recordId);</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (record.getStatus() != 1) {</span>
+<span class="fc" id="L128">            throw new BusinessException(&quot;数据集未发布，无法下载&quot;);</span>
+        }
+
+        // C2: 检查数据集内所有样本的下载权限 (L4阻断, L3需审批)
+<span class="fc" id="L132">        LambdaQueryWrapper&lt;DataSample&gt; sampleWrapper = new LambdaQueryWrapper&lt;&gt;();</span>
+<span class="fc" id="L133">        sampleWrapper.eq(DataSample::getDatasetId, record.getDatasetId());</span>
+<span class="fc" id="L134">        List&lt;DataSample&gt; samples = dataSampleMapper.selectList(sampleWrapper);</span>
+
+<span class="fc bfc" id="L136" title="All 2 branches covered.">        for (DataSample sample : samples) {</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            if (!dataAccessControlService.canDownload(sample.getId(), userId)) {</span>
+<span class="fc" id="L138">                throw new BusinessException(&quot;数据集中包含禁止下载的样本 (L4核心数据或L3敏感数据未审批)&quot;);</span>
+            }
+<span class="fc" id="L140">        }</span>
+
+        // 生成一次性令牌
+<span class="fc" id="L143">        String token = Utils.generateUUID();</span>
+<span class="fc" id="L144">        String key = &quot;download:token:&quot; + token;</span>
+<span class="fc" id="L145">        String value = recordId + &quot;:&quot; + userId + &quot;:&quot; + approvalId;</span>
+
+        // 令牌有效期24小时
+<span class="fc" id="L148">        redisTemplate.opsForValue().set(key, value, 24, TimeUnit.HOURS);</span>
+
+<span class="fc" id="L150">        log.info(&quot;生成下载令牌: 记录ID={}, 用户ID={}, 审批单号={}&quot;, recordId, userId, approvalId);</span>
+<span class="fc" id="L151">        return token;</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void unpublish(Long recordId) {
+<span class="fc" id="L157">        DeliveryRecord record = getRecordById(recordId);</span>
+<span class="fc" id="L158">        record.setStatus(2); // 已下架</span>
+<span class="fc" id="L159">        deliveryRecordMapper.updateById(record);</span>
+
+        // 更新数据集状态
+<span class="fc" id="L162">        Dataset dataset = datasetService.getDatasetById(record.getDatasetId());</span>
+<span class="fc" id="L163">        dataset.setStatus(DataStatus.ARCHIVED.getCode());</span>
+<span class="fc" id="L164">        datasetMapper.updateById(dataset);</span>
+
+<span class="fc" id="L166">        log.info(&quot;数据集下架成功: 记录ID={}&quot;, recordId);</span>
+<span class="fc" id="L167">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

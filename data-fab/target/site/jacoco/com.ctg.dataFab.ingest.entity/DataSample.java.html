@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataSample.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.ingest.entity</a> &gt; <span class="el_source">DataSample.java</span></div><h1>DataSample.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.ingest.entity;
+
+import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
+import java.time.LocalDateTime;
+
+/**
+ * 数据样本实体
+ * 对应表：t_data_sample
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="pc bpc" id="L14" title="88 of 142 branches missed.">@Data</span>
+@TableName(&quot;t_data_sample&quot;)
+public class DataSample {
+
+    /**
+     * 主键ID
+     */
+    @TableId(type = IdType.ASSIGN_ID)
+<span class="fc" id="L22">    private Long id;</span>
+
+    /**
+     * 数据集ID
+     */
+<span class="fc" id="L27">    private Long datasetId;</span>
+
+    /**
+     * 数据名称
+     */
+<span class="fc" id="L32">    private String name;</span>
+
+    /**
+     * 数据模态：1-文本，2-图像，3-音频，4-视频
+     */
+<span class="fc" id="L37">    private Integer modality;</span>
+
+    /**
+     * 数据分级：1-L1公开，2-L2内部，3-L3敏感，4-L4核心
+     */
+<span class="fc" id="L42">    private Integer dataLevel;</span>
+
+    /**
+     * 数据状态：0-新建，1-原始，2-已清洗，3-已标注，4-质量通过，5-质量不通过，6-已发布，7-已归档
+     */
+<span class="fc" id="L47">    private Integer status;</span>
+
+    /**
+     * 数据来源
+     */
+<span class="fc" id="L52">    private String source;</span>
+
+    /**
+     * 文件路径
+     */
+<span class="fc" id="L57">    private String filePath;</span>
+
+    /**
+     * 文件大小（字节）
+     */
+<span class="fc" id="L62">    private Long fileSize;</span>
+
+    /**
+     * 文件类型/MIME类型
+     */
+<span class="fc" id="L67">    private String mimeType;</span>
+
+    /**
+     * 文件MD5哈希
+     */
+<span class="fc" id="L72">    private String fileHash;</span>
+
+    /**
+     * 元数据（JSON格式）
+     */
+<span class="fc" id="L77">    private String metadata;</span>
+
+    /**
+     * 创建人
+     */
+<span class="fc" id="L82">    private String createBy;</span>
+
+    /**
+     * 创建时间
+     */
+    @TableField(fill = FieldFill.INSERT)
+<span class="fc" id="L88">    private LocalDateTime createTime;</span>
+
+    /**
+     * 更新人
+     */
+<span class="fc" id="L93">    private String updateBy;</span>
+
+    /**
+     * 更新时间
+     */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+<span class="fc" id="L99">    private LocalDateTime updateTime;</span>
+
+    /**
+     * 逻辑删除：0-未删除，1-已删除
+     */
+    @TableLogic
+<span class="fc" id="L105">    private Integer deleted;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

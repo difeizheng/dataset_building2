@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LabelTaskController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Dataset Building Subsystem</a> &gt; <a href="index.source.html" class="el_package">com.ctg.dataFab.label.controller</a> &gt; <span class="el_source">LabelTaskController.java</span></div><h1>LabelTaskController.java</h1><pre class="source lang-java linenums">package com.ctg.dataFab.label.controller;
+
+import com.ctg.dataFab.common.dto.ApiResponse;
+import com.ctg.dataFab.common.dto.PageRequest;
+import com.ctg.dataFab.common.dto.PageResponse;
+import com.ctg.dataFab.label.dto.CreateLabelTaskRequest;
+import com.ctg.dataFab.label.dto.SubmitLabelRequest;
+import com.ctg.dataFab.label.entity.LabelTask;
+import com.ctg.dataFab.label.service.LabelTaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 标注任务控制器
+ * 对应接口：POST /api/v1/label/tasks, POST /api/v1/label/submit, POST /api/v1/label/arbitrate
+ *
+ * @author Developer
+ * @since 2026-07-01
+ */
+<span class="fc" id="L25">@Slf4j</span>
+@RestController
+@RequestMapping(&quot;/api/v1/label&quot;)
+<span class="fc" id="L28">@RequiredArgsConstructor</span>
+@Tag(name = &quot;标注工作台&quot;, description = &quot;标注任务管理、标注提交、仲裁接口&quot;)
+public class LabelTaskController {
+
+    private final LabelTaskService labelTaskService;
+
+    @PostMapping(&quot;/tasks&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR')&quot;)
+    @Operation(summary = &quot;创建标注任务&quot;)
+    public ApiResponse&lt;Long&gt; createTask(@Valid @RequestBody CreateLabelTaskRequest request) {
+<span class="fc" id="L38">        Long id = labelTaskService.createTask(request);</span>
+<span class="fc" id="L39">        return ApiResponse.success(id);</span>
+    }
+
+    @GetMapping(&quot;/tasks/{id}&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')&quot;)
+    @Operation(summary = &quot;获取标注任务详情&quot;)
+    public ApiResponse&lt;LabelTask&gt; getTask(@PathVariable Long id) {
+<span class="fc" id="L46">        LabelTask task = labelTaskService.getTaskById(id);</span>
+<span class="fc" id="L47">        return ApiResponse.success(task);</span>
+    }
+
+    @GetMapping(&quot;/tasks&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR', 'AUDITOR')&quot;)
+    @Operation(summary = &quot;分页查询标注任务&quot;)
+    public ApiResponse&lt;PageResponse&lt;LabelTask&gt;&gt; listTasks(
+            @RequestParam(required = false) Long datasetId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = &quot;1&quot;) Integer pageNum,
+            @RequestParam(defaultValue = &quot;20&quot;) Integer pageSize) {
+
+<span class="nc" id="L59">        PageRequest pageRequest = new PageRequest();</span>
+<span class="nc" id="L60">        pageRequest.setPageNum(pageNum);</span>
+<span class="nc" id="L61">        pageRequest.setPageSize(pageSize);</span>
+
+<span class="nc" id="L63">        var page = labelTaskService.listTasks(datasetId, status, pageRequest);</span>
+<span class="nc" id="L64">        PageResponse&lt;LabelTask&gt; response = PageResponse.of(</span>
+<span class="nc" id="L65">                page.getRecords(),</span>
+<span class="nc" id="L66">                page.getTotal(),</span>
+<span class="nc" id="L67">                (int) page.getCurrent(),</span>
+<span class="nc" id="L68">                (int) page.getSize()</span>
+        );
+
+<span class="nc" id="L71">        return ApiResponse.success(response);</span>
+    }
+
+    @PostMapping(&quot;/submit&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'OPERATOR')&quot;)
+    @Operation(summary = &quot;提交标注&quot;)
+    public ApiResponse&lt;Void&gt; submitLabel(@Valid @RequestBody SubmitLabelRequest request) {
+<span class="fc" id="L78">        labelTaskService.submitLabel(request);</span>
+<span class="fc" id="L79">        return ApiResponse.success();</span>
+    }
+
+    @PostMapping(&quot;/arbitrate&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    @Operation(summary = &quot;触发仲裁&quot;)
+    public ApiResponse&lt;Void&gt; triggerArbitration(@RequestParam Long taskId) {
+<span class="fc" id="L86">        labelTaskService.triggerArbitration(taskId);</span>
+<span class="fc" id="L87">        return ApiResponse.success();</span>
+    }
+
+    @GetMapping(&quot;/tasks/{id}/iaa&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'AUDITOR')&quot;)
+    @Operation(summary = &quot;计算IAA得分&quot;)
+    public ApiResponse&lt;Double&gt; calculateIaa(@PathVariable Long id) {
+<span class="fc" id="L94">        Double kappa = labelTaskService.calculateIaaScore(id);</span>
+<span class="fc" id="L95">        return ApiResponse.success(kappa);</span>
+    }
+
+    @PostMapping(&quot;/tasks/{id}/relabel&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    @Operation(summary = &quot;触发重标&quot;)
+    public ApiResponse&lt;Void&gt; triggerRelabel(@PathVariable Long id) {
+<span class="fc" id="L102">        labelTaskService.triggerRelabel(id);</span>
+<span class="fc" id="L103">        return ApiResponse.success();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
